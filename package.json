@@ -1,0 +1,22 @@
+{
+  "name": "paypilot-ai-workspace",
+  "version": "1.0.0",
+  "description": "PayPilot AI: Payment Incident Investigation and Reconciliation Platform",
+  "private": true,
+  "scripts": {
+    "test": "npm --prefix backend test",
+    "seed": "npm --prefix backend run seed",
+    "build": "npm --prefix frontend run build",
+    "backend": "npm --prefix backend start",
+    "backend:dev": "npm --prefix backend run dev",
+    "frontend": "npm --prefix frontend run dev"
+  },
+  "keywords": [
+    "reconciliation",
+    "incident-investigation",
+    "mern",
+    "fintech"
+  ],
+  "author": "PayPilot AI",
+  "license": "ISC"
+}
