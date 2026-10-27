@@ -3,6 +3,27 @@
 > **Local Development Prototype**  
 > PayPilot AI is a fintech operations platform designed for small businesses and freelancers to detect, investigate, audit, and resolve discrepancies between expected customer orders and ingested payment records.
 
+## The Problem
+
+Small businesses often struggle to reconcile orders, payment records, and invoices efficiently. Missing payments, duplicate transactions, failed payments, and currency or amount mismatches require manual investigation, increasing the time and effort needed to resolve discrepancies.
+
+Existing financial reconciliation platforms, including BlackLine and HighRadius, provide powerful automation capabilities. However, some user reviews report challenges such as complex interfaces, steep learning curves, implementation difficulties, and limitations in reporting or customisation.
+
+These challenges highlight an opportunity for a simpler, more accessible reconciliation solution tailored to small businesses.
+
+## Our Solution: PayPilot AI
+
+PayPilot AI aims to simplify payment reconciliation through an accessible interface, automated discrepancy detection, and AI-assisted investigation.
+
+- **Simplified workflow:** Make reconciliation easier to understand and use without unnecessary complexity.
+- **Automated detection:** Identify missing, duplicate, failed, and mismatched payment records using deterministic reconciliation rules.
+- **Explainable AI investigation:** Use Gemini to explain detected incidents using available transaction evidence.
+- **Actionable recommendations:** Suggest appropriate next steps so analysts can investigate and resolve issues faster.
+- **Accessible data handling:** Aim to support straightforward imports of payment and order records, reducing dependence on complex integrations.
+
+## Our Goal
+
+To help small businesses spend less time manually investigating payment discrepancies by combining reliable reconciliation rules, explainable AI, and a simple user experience—while keeping financial corrections under human approval.
 ---
 
 ## 1. Product Purpose
