@@ -1,3 +1,4 @@
+const { investigateIncident } = require('../services/aiInvestigationService');
 const Incident = require('../models/Incident');
 const Order = require('../models/Order');
 const Payment = require('../models/Payment');
@@ -232,9 +233,39 @@ async function addInvestigationNote(req, res, next) {
   }
 }
 
+/**
+ * Generate an AI explanation for an existing incident.
+ */
+async function investigateIncidentWithAI(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    const incident = id.startsWith('INC-')
+      ? await Incident.findOne({ incidentRef: id }).lean()
+      : await Incident.findById(id).lean();
+
+    if (!incident) {
+      return res.status(404).json({
+        success: false,
+        message: 'Incident not found.',
+      });
+    }
+
+    const aiAnalysis = await investigateIncident(incident);
+
+    res.json({
+      success: true,
+      data: { incidentRef: incident.incidentRef, aiAnalysis },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listIncidents,
   getIncidentById,
   updateIncidentStatus,
   addInvestigationNote,
+  investigateIncidentWithAI,
 };

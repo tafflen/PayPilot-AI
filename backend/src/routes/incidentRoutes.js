@@ -4,6 +4,7 @@ const {
   getIncidentById,
   updateIncidentStatus,
   addInvestigationNote,
+  investigateIncidentWithAI,
 } = require('../controllers/incidentController');
 const { authenticate } = require('../middleware/auth');
 const {
@@ -16,6 +17,7 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/', listIncidents);
+router.post('/:id/ai-investigation', investigateIncidentWithAI);
 router.get('/:id', getIncidentById);
 router.patch('/:id/status', validateIncidentStatusUpdate, updateIncidentStatus);
 router.post('/:id/notes', validateAddNote, addInvestigationNote);
