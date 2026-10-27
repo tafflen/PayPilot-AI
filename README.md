@@ -7,6 +7,19 @@
 
 Small businesses often struggle to reconcile orders, payment records, and invoices efficiently. Missing payments, duplicate transactions, failed payments, and currency or amount mismatches require manual investigation, increasing the time and effort needed to resolve discrepancies.
 
+Statistics show that:
+\- 61% — Time-consuming manual reconciliation
+- Indian businesses spend 1–3 hours daily reconciling payments.
+- Source: Zoho Payments, Indian Merchant Payments Survey 2026 (700+ businesses surveyed).
+
+\- 46% — Reconciliation challenges
+- Indian businesses identify reconciliation as a challenge in their payment operations.
+- Source: Zoho Payments, Indian Merchant Payments Survey 2026.
+
+\- \~80% — Widespread payment difficulties
+- US small businesses face payment-related challenges, including fees, late-paying customers, time-consuming payments, and delayed access to funds.
+- Source: Federal Reserve Banks, 2024 Report on Payments, based on the 2023 Small Business Credit Survey.
+
 Existing financial reconciliation platforms, including BlackLine and HighRadius, provide powerful automation capabilities. However, some user reviews report challenges such as complex interfaces, steep learning curves, implementation difficulties, and limitations in reporting or customisation.
 
 These challenges highlight an opportunity for a simpler, more accessible reconciliation solution tailored to small businesses.
