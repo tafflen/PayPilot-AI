@@ -24,7 +24,8 @@ PayPilot AI aims to simplify payment reconciliation through an accessible interf
 ## Our Goal
 
 To help small businesses spend less time manually investigating payment discrepancies by combining reliable reconciliation rules, explainable AI, and a simple user experience—while keeping financial corrections under human approval.
----
+
+
 
 ## 1. Product Purpose
 
