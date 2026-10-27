@@ -27,9 +27,7 @@ To help small businesses spend less time manually investigating payment discrepa
 
 
 
-## 1. Product Purpose
-
-Small businesses and digital merchants often struggle to reconcile incoming bank/gateway deposits with customer orders. Silent discrepancies lead to revenue leakage, customer disputes, unfulfilled orders, and accounting head-scratchers.
+## 1. The Product
 
 PayPilot AI provides an evidence-based incident investigation workflow that answers 6 fundamental questions for every transaction anomaly:
 
