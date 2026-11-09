@@ -84,6 +84,8 @@ const incidentSchema = new mongoose.Schema(
       type: String,
       uppercase: true,
       trim: true,
+      minlength: 3,
+      maxlength: 3,
       default: 'USD',
     },
     triggeredRule: {
@@ -97,6 +99,14 @@ const incidentSchema = new mongoose.Schema(
       default: {},
     },
     investigationNotes: [investigationNoteSchema],
+    aiAnalysis: {
+      type: String,
+      default: '',
+    },
+    aiAnalyzedAt: {
+      type: Date,
+      default: null,
+    },
     resolutionNote: {
       type: String,
       trim: true,

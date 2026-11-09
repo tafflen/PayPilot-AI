@@ -11,7 +11,16 @@ const { INCIDENT_STATUS } = require('../utils/constants');
  */
 async function listIncidents(req, res, next) {
   try {
-    const { status, severity, incidentType, search, page = 1, limit = 20 } = req.query;
+    const {
+      status,
+      severity,
+      incidentType,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 20,
+    } = req.query;
     const query = {};
 
     if (status) {
@@ -36,12 +45,17 @@ async function listIncidents(req, res, next) {
       ];
     }
 
+    const allowedSortFields = ['createdAt', 'severity', 'expectedAmount', 'status', 'incidentRef'];
+    const field = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const direction = sortOrder.toLowerCase() === 'asc' ? 1 : -1;
+    const sort = { [field]: direction };
+
     const pageNum = Math.max(1, parseInt(page, 10));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
     const [incidents, total] = await Promise.all([
-      Incident.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
+      Incident.find(query).sort(sort).skip(skip).limit(limitNum).lean(),
       Incident.countDocuments(query),
     ]);
 
@@ -241,8 +255,8 @@ async function investigateIncidentWithAI(req, res, next) {
     const { id } = req.params;
 
     const incident = id.startsWith('INC-')
-      ? await Incident.findOne({ incidentRef: id }).lean()
-      : await Incident.findById(id).lean();
+      ? await Incident.findOne({ incidentRef: id })
+      : await Incident.findById(id);
 
     if (!incident) {
       return res.status(404).json({
@@ -251,11 +265,28 @@ async function investigateIncidentWithAI(req, res, next) {
       });
     }
 
-    const aiAnalysis = await investigateIncident(incident);
+    const aiAnalysis = await investigateIncident(incident.toObject());
+
+    incident.aiAnalysis = aiAnalysis;
+    incident.aiAnalyzedAt = new Date();
+    await incident.save();
+
+    await logAction({
+      actor: req.user ? req.user.email : 'system',
+      action: 'INCIDENT_AI_INVESTIGATION',
+      resourceType: 'Incident',
+      resourceId: incident._id.toString(),
+      details: { incidentRef: incident.incidentRef },
+      req,
+    });
 
     res.json({
       success: true,
-      data: { incidentRef: incident.incidentRef, aiAnalysis },
+      data: {
+        incidentRef: incident.incidentRef,
+        aiAnalysis,
+        aiAnalyzedAt: incident.aiAnalyzedAt,
+      },
     });
   } catch (err) {
     next(err);

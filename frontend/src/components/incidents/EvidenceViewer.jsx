@@ -47,7 +47,7 @@ export function EvidenceViewer({ incident, linkedOrder, linkedPayment }) {
             </div>
           ) : incident.expectedAmount !== null && incident.expectedAmount !== undefined ? (
             <p className="fallback-text">
-              Expected <strong className="font-mono">{formatCurrency(incident.expectedAmount, incident.currency)}</strong> based on recorded invoice reference.
+              Expected <strong className="font-mono">{formatCurrency(incident.expectedAmount, incident.evidence?.details?.expectedCurrency || incident.currency)}</strong> based on recorded invoice reference.
             </p>
           ) : (
             <p className="empty-text">No order reference was supplied in payment records (Unlinked payment).</p>
@@ -91,7 +91,7 @@ export function EvidenceViewer({ incident, linkedOrder, linkedPayment }) {
             </div>
           ) : incident.recordedAmount !== null && incident.recordedAmount !== undefined ? (
             <p className="fallback-text">
-              Transaction logged captured amount of <strong className="font-mono">{formatCurrency(incident.recordedAmount, incident.currency)}</strong>.
+              Transaction logged captured amount of <strong className="font-mono">{formatCurrency(incident.recordedAmount, incident.evidence?.details?.recordedCurrency || incident.currency)}</strong>.
             </p>
           ) : (
             <p className="empty-text">Zero payments have been recorded for this order (Unpaid order).</p>

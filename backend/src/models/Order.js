@@ -77,6 +77,21 @@ const orderSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    isDemo: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    paypalOrderId: {
+      type: String,
+      trim: true,
+      default: '',
+      index: true,
+    },
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   {
     timestamps: true,

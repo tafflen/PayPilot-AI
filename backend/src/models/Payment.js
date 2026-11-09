@@ -57,7 +57,8 @@ const paymentSchema = new mongoose.Schema(
     },
     isDemo: {
       type: Boolean,
-      default: true,
+      default: false,
+      index: true,
     },
     metadata: {
       type: mongoose.Schema.Types.Mixed,

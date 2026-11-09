@@ -6,7 +6,7 @@ const AuditLog = require('../models/AuditLog');
  */
 async function logAction({ actor = 'system', action, resourceType, resourceId = '', details = {}, req = null }) {
   try {
-    const ipAddress = req ? req.ip || req.headers['x-forwarded-for'] || '' : '';
+    const ipAddress = req ? req.ip || (req.headers && req.headers['x-forwarded-for']) || '' : '';
     // Ensure sensitive details like passwords or tokens are never logged
     const sanitizedDetails = { ...details };
     delete sanitizedDetails.password;

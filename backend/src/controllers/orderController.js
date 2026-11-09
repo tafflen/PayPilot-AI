@@ -2,6 +2,7 @@ const Order = require('../models/Order');
 const Payment = require('../models/Payment');
 const Incident = require('../models/Incident');
 const { logAction } = require('../services/auditService');
+const { validateAndPrepareOrders } = require('../services/csvImportService');
 
 /**
  * Create a new order
@@ -255,10 +256,73 @@ async function deleteOrder(req, res, next) {
   }
 }
 
+/**
+ * Bulk import orders from CSV data with preview and duplicate protection
+ */
+async function importOrdersCsv(req, res, next) {
+  try {
+    const { csvText, rows, preview = false } = req.body;
+    const input = csvText || rows;
+
+    if (!input || (typeof input === 'string' && !input.trim()) || (Array.isArray(input) && input.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'No CSV data or rows provided for import.',
+      });
+    }
+
+    const existingOrders = await Order.find({}, 'orderRef').lean();
+    const existingDbRefs = new Set(existingOrders.map((o) => (o.orderRef || '').toUpperCase()));
+
+    const result = validateAndPrepareOrders(input, existingDbRefs, req.user ? req.user._id : null);
+
+    if (preview) {
+      return res.json({
+        success: true,
+        message: 'CSV preview generated successfully',
+        data: result,
+      });
+    }
+
+    let insertedOrders = [];
+    if (result.validRows.length > 0) {
+      insertedOrders = await Order.insertMany(result.validRows, { ordered: false });
+
+      await logAction({
+        actor: req.user ? req.user.email : 'system',
+        action: 'ORDER_CSV_IMPORT',
+        resourceType: 'Order',
+        details: {
+          importedCount: insertedOrders.length,
+          duplicateCount: result.duplicateRows.length,
+          invalidCount: result.invalidRows.length,
+        },
+        req,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully imported ${insertedOrders.length} order(s). ${result.duplicateRows.length} duplicates skipped.`,
+      data: {
+        importedCount: insertedOrders.length,
+        duplicateCount: result.duplicateRows.length,
+        invalidCount: result.invalidRows.length,
+        invalidRows: result.invalidRows,
+        duplicateRows: result.duplicateRows,
+        orders: insertedOrders,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createOrder,
   listOrders,
   getOrderById,
   updateOrder,
   deleteOrder,
+  importOrdersCsv,
 };

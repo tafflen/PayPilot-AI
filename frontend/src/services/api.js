@@ -72,6 +72,7 @@ export const api = {
     create: (orderData) => request('/orders', { method: 'POST', body: orderData }),
     update: (id, orderData) => request(`/orders/${id}`, { method: 'PATCH', body: orderData }),
     delete: (id, force = false) => request(`/orders/${id}?force=${force}`, { method: 'DELETE' }),
+    import: (payload) => request('/orders/import', { method: 'POST', body: payload }),
   },
 
   // Payments
@@ -82,6 +83,7 @@ export const api = {
     },
     getById: (id) => request(`/payments/${id}`),
     createDemo: (paymentData) => request('/payments/demo', { method: 'POST', body: paymentData }),
+    import: (payload) => request('/payments/import', { method: 'POST', body: payload }),
   },
 
   // Reconciliation
@@ -107,11 +109,22 @@ export const api = {
         method: 'POST',
         body: { note },
       }),
+    investigateWithAi: (id) =>
+      request(`/incidents/${id}/ai-investigation`, {
+        method: 'POST',
+      }),
   },
 
   // Reports
   reports: {
     getReports: () => request('/reports'),
+  },
+
+  // PayPal Sandbox
+  paypal: {
+    getConfig: () => request('/paypal/config'),
+    createOrder: (data) => request('/paypal/create-order', { method: 'POST', body: data }),
+    captureOrder: (data) => request('/paypal/capture-order', { method: 'POST', body: data }),
   },
 
   // Health

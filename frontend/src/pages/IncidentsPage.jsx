@@ -17,6 +17,7 @@ export function IncidentsPage() {
   const [status, setStatus] = useState(searchParams.get('status') || '');
   const [severity, setSeverity] = useState(searchParams.get('severity') || '');
   const [incidentType, setIncidentType] = useState(searchParams.get('type') || '');
+  const [sort, setSort] = useState('newest');
 
   const fetchIncidents = async () => {
     setIsLoading(true);
@@ -26,6 +27,20 @@ export function IncidentsPage() {
       if (status) params.status = status;
       if (severity) params.severity = severity;
       if (incidentType) params.incidentType = incidentType;
+
+      if (sort === 'newest') {
+        params.sortBy = 'createdAt';
+        params.sortOrder = 'desc';
+      } else if (sort === 'oldest') {
+        params.sortBy = 'createdAt';
+        params.sortOrder = 'asc';
+      } else if (sort === 'severity') {
+        params.sortBy = 'severity';
+        params.sortOrder = 'asc';
+      } else if (sort === 'amount') {
+        params.sortBy = 'expectedAmount';
+        params.sortOrder = 'desc';
+      }
 
       const res = await api.incidents.list(params);
       setIncidents(res.data.incidents || []);
@@ -38,7 +53,7 @@ export function IncidentsPage() {
 
   useEffect(() => {
     fetchIncidents();
-  }, [search, status, severity, incidentType]);
+  }, [search, status, severity, incidentType, sort]);
 
   const columns = [
     {
@@ -97,14 +112,18 @@ export function IncidentsPage() {
     {
       header: 'Expected / Recorded',
       key: 'expectedAmount',
-      render: (inc) => (
-        <div className="font-mono" style={{ fontSize: '0.82rem' }}>
-          <div>Exp: {formatCurrency(inc.expectedAmount, inc.currency)}</div>
-          <div style={{ color: 'var(--text-muted)' }}>
-            Rec: {formatCurrency(inc.recordedAmount, inc.currency)}
+      render: (inc) => {
+        const expCurrency = inc.evidence?.details?.expectedCurrency || inc.currency;
+        const recCurrency = inc.evidence?.details?.recordedCurrency || inc.currency;
+        return (
+          <div className="font-mono" style={{ fontSize: '0.82rem' }}>
+            <div>Exp: {formatCurrency(inc.expectedAmount, expCurrency)}</div>
+            <div style={{ color: 'var(--text-muted)' }}>
+              Rec: {formatCurrency(inc.recordedAmount, recCurrency)}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       header: 'Created',
@@ -189,6 +208,16 @@ export function IncidentsPage() {
               { value: 'FAILED_PAYMENT', label: 'Failed Payment' },
               { value: 'UNLINKED_PAYMENT', label: 'Unlinked Payment' },
               { value: 'MISSING_REFERENCES', label: 'Missing References' },
+            ],
+          },
+          {
+            value: sort,
+            onChange: setSort,
+            options: [
+              { value: 'newest', label: 'Sort: Newest First' },
+              { value: 'oldest', label: 'Sort: Oldest First' },
+              { value: 'severity', label: 'Sort: Severity' },
+              { value: 'amount', label: 'Sort: Expected Amount' },
             ],
           },
         ]}

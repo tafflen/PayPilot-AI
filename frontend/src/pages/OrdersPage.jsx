@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Plus, RefreshCw, Edit2, Trash2, Eye } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import {
+  ShoppingCart,
+  Plus,
+  RefreshCw,
+  Edit2,
+  Trash2,
+  Eye,
+  UploadCloud,
+  CreditCard,
+  ExternalLink,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Loader2,
+} from 'lucide-react';
 import { api } from '../services/api';
 import { DataTable } from '../components/common/DataTable';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { SearchAndFilters } from '../components/common/SearchAndFilters';
 import { OrderModal } from '../components/orders/OrderModal';
+import { CsvImportModal } from '../components/common/CsvImportModal';
 import { ConfirmationDialog } from '../components/common/ConfirmationDialog';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 
@@ -13,9 +29,11 @@ export function OrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Modals state
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [orderToDelete, setOrderToDelete] = useState(null);
   const [deleteErrorMessage, setDeleteErrorMessage] = useState(null);
@@ -23,6 +41,10 @@ export function OrdersPage() {
   // Detail drawer / modal
   const [viewingOrder, setViewingOrder] = useState(null);
   const [viewingOrderDetails, setViewingOrderDetails] = useState(null);
+
+  // PayPal interaction state
+  const [initiatingPayPalId, setInitiatingPayPalId] = useState(null);
+  const [paypalFeedback, setPaypalFeedback] = useState(null);
 
   const fetchOrders = async () => {
     setIsLoading(true);
@@ -44,6 +66,47 @@ export function OrdersPage() {
     fetchOrders();
   }, [search, status]);
 
+  // Handle return redirect from PayPal Sandbox checkout
+  useEffect(() => {
+    const isSuccess = searchParams.get('paypal_success') === 'true';
+    const isCancelled = searchParams.get('paypal_cancelled') === 'true';
+    const token = searchParams.get('token'); // PayPal Order ID
+    const orderRef = searchParams.get('orderRef');
+
+    if (isSuccess && token) {
+      setPaypalFeedback({
+        type: 'processing',
+        message: `Finalizing PayPal Sandbox payment for order ${orderRef || token}... Capturing funds.`,
+      });
+
+      // Clear query params from URL so refresh does not trigger repeated captures
+      setSearchParams({}, { replace: true });
+
+      api.paypal
+        .captureOrder({ paypalOrderId: token, orderRef })
+        .then((res) => {
+          const captureRef = res.data?.payment?.transactionRef || token;
+          setPaypalFeedback({
+            type: 'success',
+            message: `PayPal Sandbox payment captured and verified! Capture ID: ${captureRef}`,
+          });
+          fetchOrders();
+        })
+        .catch((err) => {
+          setPaypalFeedback({
+            type: 'error',
+            message: `PayPal capture failed: ${err.message}`,
+          });
+        });
+    } else if (isCancelled) {
+      setPaypalFeedback({
+        type: 'warning',
+        message: `PayPal Sandbox payment checkout was cancelled by the buyer${orderRef ? ` for order ${orderRef}` : ''}.`,
+      });
+      setSearchParams({}, { replace: true });
+    }
+  }, []);
+
   const handleOpenDetail = async (order) => {
     setViewingOrder(order);
     try {
@@ -51,6 +114,31 @@ export function OrdersPage() {
       setViewingOrderDetails(res.data);
     } catch (err) {
       console.error('Failed to load order details:', err);
+    }
+  };
+
+  const handlePayWithPayPal = async (order) => {
+    if (!order) return;
+    setInitiatingPayPalId(order._id);
+    setPaypalFeedback(null);
+
+    try {
+      const res = await api.paypal.createOrder({
+        orderId: order._id,
+        orderRef: order.orderRef,
+      });
+
+      if (res.data?.approvalUrl) {
+        window.location.href = res.data.approvalUrl;
+      } else {
+        throw new Error('PayPal did not return an approval URL.');
+      }
+    } catch (err) {
+      setPaypalFeedback({
+        type: 'error',
+        message: `Could not initialize PayPal checkout: ${err.message}`,
+      });
+      setInitiatingPayPalId(null);
     }
   };
 
@@ -121,10 +209,52 @@ export function OrdersPage() {
       render: (o) => <StatusBadge status={o.status} />,
     },
     {
+      header: 'Source',
+      key: 'isDemo',
+      render: (o) =>
+        o.isDemo ? (
+          <span className="badge badge-demo" style={{ fontSize: '0.72rem' }}>
+            Demo Data
+          </span>
+        ) : (
+          <span
+            className="badge badge-imported"
+            style={{
+              fontSize: '0.72rem',
+              backgroundColor: 'rgba(20, 184, 166, 0.15)',
+              color: 'var(--accent-teal)',
+            }}
+          >
+            Imported
+          </span>
+        ),
+    },
+    {
       header: 'Actions',
       align: 'right',
       render: (o) => (
-        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+          {o.status !== 'paid' && (
+            <button
+              className="btn btn-secondary btn-sm"
+              title="Pay with PayPal Sandbox"
+              disabled={initiatingPayPalId === o._id}
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePayWithPayPal(o);
+              }}
+              style={{
+                borderColor: 'var(--accent-teal)',
+                color: 'var(--accent-teal)',
+              }}
+            >
+              {initiatingPayPalId === o._id ? (
+                <Loader2 size={13} className="spin" />
+              ) : (
+                <CreditCard size={13} />
+              )}
+            </button>
+          )}
           <button
             className="btn btn-secondary btn-sm"
             title="View Details & Ledger Matches"
@@ -177,6 +307,12 @@ export function OrdersPage() {
             <RefreshCw size={14} /> Refresh
           </button>
           <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setIsCsvModalOpen(true)}
+          >
+            <UploadCloud size={14} /> Import CSV
+          </button>
+          <button
             className="btn btn-primary btn-sm"
             onClick={() => {
               setEditingOrder(null);
@@ -187,6 +323,61 @@ export function OrdersPage() {
           </button>
         </div>
       </div>
+
+      {/* PayPal Feedback Banner */}
+      {paypalFeedback && (
+        <div
+          style={{
+            marginBottom: '1.25rem',
+            padding: '0.85rem 1.25rem',
+            borderRadius: 'var(--radius-md)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.88rem',
+            backgroundColor:
+              paypalFeedback.type === 'success'
+                ? 'var(--status-success-bg)'
+                : paypalFeedback.type === 'warning'
+                ? 'var(--status-warning-bg)'
+                : paypalFeedback.type === 'error'
+                ? 'var(--status-danger-bg)'
+                : 'rgba(6, 182, 212, 0.15)',
+            border: `1px solid ${
+              paypalFeedback.type === 'success'
+                ? 'var(--status-success-border)'
+                : paypalFeedback.type === 'warning'
+                ? 'var(--status-warning-border)'
+                : paypalFeedback.type === 'error'
+                ? 'var(--status-danger-border)'
+                : 'var(--border-focus)'
+            }`,
+            color:
+              paypalFeedback.type === 'success'
+                ? 'var(--status-success)'
+                : paypalFeedback.type === 'warning'
+                ? 'var(--status-warning)'
+                : paypalFeedback.type === 'error'
+                ? 'var(--status-danger)'
+                : 'var(--accent-teal)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            {paypalFeedback.type === 'processing' && <Loader2 size={18} className="spin" />}
+            {paypalFeedback.type === 'success' && <CheckCircle2 size={18} />}
+            {paypalFeedback.type === 'warning' && <AlertTriangle size={18} />}
+            {paypalFeedback.type === 'error' && <XCircle size={18} />}
+            <span>{paypalFeedback.message}</span>
+          </div>
+          <button
+            className="btn-ghost"
+            style={{ border: 'none', color: 'inherit', padding: '0.2rem', cursor: 'pointer', fontSize: '1.2rem', background: 'none' }}
+            onClick={() => setPaypalFeedback(null)}
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       <SearchAndFilters
         searchValue={search}
@@ -278,6 +469,74 @@ export function OrdersPage() {
                 </div>
               </div>
 
+              {/* PayPal Sandbox Checkout Card */}
+              <div
+                style={{
+                  backgroundColor: 'var(--bg-surface-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <CreditCard size={18} color="var(--accent-teal)" />
+                    <span style={{ fontWeight: 600, fontSize: '0.92rem' }}>
+                      PayPal Sandbox Checkout
+                    </span>
+                  </div>
+                  <span
+                    className="badge"
+                    style={{
+                      fontSize: '0.72rem',
+                      backgroundColor: 'rgba(6, 182, 212, 0.12)',
+                      color: 'var(--accent-teal)',
+                      border: '1px solid rgba(6, 182, 212, 0.3)',
+                    }}
+                  >
+                    Sandbox Environment
+                  </span>
+                </div>
+
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Process customer payment via PayPal Sandbox. Amount is dynamically retrieved from MongoDB and verified upon capture.
+                </p>
+
+                {viewingOrderDetails.order.status === 'paid' ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--status-success)', fontSize: '0.85rem' }}>
+                    <CheckCircle2 size={16} />
+                    <span>Order is already fully paid. No further payment required.</span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.25rem' }}>
+                    <div style={{ fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Charge Amount: </span>
+                      <strong className="font-mono text-teal">
+                        {formatCurrency(viewingOrderDetails.order.expectedAmount, viewingOrderDetails.order.currency)}
+                      </strong>
+                    </div>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      disabled={initiatingPayPalId === viewingOrderDetails.order._id}
+                      onClick={() => handlePayWithPayPal(viewingOrderDetails.order)}
+                    >
+                      {initiatingPayPalId === viewingOrderDetails.order._id ? (
+                        <>
+                          <Loader2 size={14} className="spin" /> Opening PayPal...
+                        </>
+                      ) : (
+                        <>
+                          <ExternalLink size={14} /> Pay with PayPal Sandbox
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Linked Payments */}
               <div>
                 <h4 style={{ fontSize: '0.95rem', marginBottom: '0.5rem' }}>
@@ -353,6 +612,14 @@ export function OrdersPage() {
           </div>
         </div>
       )}
+
+      {/* CSV Import Modal */}
+      <CsvImportModal
+        isOpen={isCsvModalOpen}
+        onClose={() => setIsCsvModalOpen(false)}
+        type="orders"
+        onSuccess={fetchOrders}
+      />
     </div>
   );
 }

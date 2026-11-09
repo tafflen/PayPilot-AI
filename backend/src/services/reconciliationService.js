@@ -299,7 +299,7 @@ function evaluateReconciliation(orders = [], payments = [], options = {}) {
         transactionRef: txnRef,
         expectedAmount: linkedOrder.expectedAmount,
         recordedAmount: payment.amount,
-        currency: `${orderCurr} vs ${paymentCurr}`,
+        currency: orderCurr || 'USD',
         triggeredRule: RECONCILIATION_RULES.RULE_CURRENCY_MISMATCH,
         evidence: {
           rule: 'RULE_02_CURRENCY_MISMATCH',
@@ -309,6 +309,7 @@ function evaluateReconciliation(orders = [], payments = [], options = {}) {
           details: {
             expectedCurrency: orderCurr,
             recordedCurrency: paymentCurr,
+            currencyComparison: `${orderCurr} vs ${paymentCurr}`,
             orderExpectedMinor: linkedOrder.expectedAmount,
             paymentRecordedMinor: payment.amount,
           },

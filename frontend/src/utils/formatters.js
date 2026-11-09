@@ -12,25 +12,36 @@ export function formatCurrency(minorUnits, currencyCode = 'USD') {
   if (minorUnits === undefined || minorUnits === null || isNaN(Number(minorUnits))) {
     return '—';
   }
-  const code = (currencyCode || 'USD').toUpperCase();
+  const rawCode = (currencyCode || 'USD').toString().trim().toUpperCase();
   const numUnits = parseInt(minorUnits, 10);
-
-  if (ZERO_DECIMAL_CURRENCIES.has(code)) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: code,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(numUnits);
-  }
-
   const major = numUnits / 100;
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: code,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(major);
+
+  // Validate ISO 4217 standard (3 uppercase letters)
+  const isIso = /^[A-Z]{3}$/.test(rawCode);
+  const safeCode = isIso ? rawCode : 'USD';
+
+  try {
+    if (ZERO_DECIMAL_CURRENCIES.has(safeCode)) {
+      const formatted = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: safeCode,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(numUnits);
+      return isIso ? formatted : `${formatted} (${rawCode})`;
+    }
+
+    const formatted = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: safeCode,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(major);
+    return isIso ? formatted : `${formatted} (${rawCode})`;
+  } catch (err) {
+    // Ultimate fallback if Intl fails on edge runtime
+    return `${rawCode} ${major.toFixed(2)}`;
+  }
 }
 
 /**

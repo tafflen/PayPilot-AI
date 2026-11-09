@@ -34,7 +34,14 @@ export function IncidentCard({ incident }) {
           {incident.orderRef && <span>Ord: {incident.orderRef}</span>}
           {incident.transactionRef && <span>Txn: {incident.transactionRef}</span>}
           {incident.expectedAmount !== null && (
-            <span>Exp: {formatCurrency(incident.expectedAmount, incident.currency)}</span>
+            <span>
+              Exp: {formatCurrency(incident.expectedAmount, incident.evidence?.details?.expectedCurrency || incident.currency)}
+            </span>
+          )}
+          {incident.recordedAmount !== null && incident.incidentType === 'CURRENCY_MISMATCH' && (
+            <span>
+              Rec: {formatCurrency(incident.recordedAmount, incident.evidence?.details?.recordedCurrency || 'USD')}
+            </span>
           )}
         </div>
 

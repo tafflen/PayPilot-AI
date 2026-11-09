@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Receipt, Plus, RefreshCw, Eye } from 'lucide-react';
+import { Receipt, Plus, RefreshCw, Eye, UploadCloud } from 'lucide-react';
 import { api } from '../services/api';
 import { DataTable } from '../components/common/DataTable';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { SearchAndFilters } from '../components/common/SearchAndFilters';
 import { PaymentModal } from '../components/payments/PaymentModal';
+import { CsvImportModal } from '../components/common/CsvImportModal';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 
 export function TransactionsPage() {
@@ -16,6 +17,7 @@ export function TransactionsPage() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [status, setStatus] = useState(searchParams.get('status') || '');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
 
   const fetchPayments = async () => {
@@ -75,13 +77,25 @@ export function TransactionsPage() {
       render: (p) => <StatusBadge status={p.status} />,
     },
     {
-      header: 'Provider',
+      header: 'Provider / Source',
       key: 'provider',
-      render: (p) => (
-        <span className="badge badge-demo">
-          {p.provider} (Sample)
-        </span>
-      ),
+      render: (p) =>
+        p.isDemo ? (
+          <span className="badge badge-demo" style={{ fontSize: '0.72rem' }}>
+            {p.provider} (Sample)
+          </span>
+        ) : (
+          <span
+            className="badge badge-imported"
+            style={{
+              fontSize: '0.72rem',
+              backgroundColor: 'rgba(20, 184, 166, 0.15)',
+              color: 'var(--accent-teal)',
+            }}
+          >
+            {p.provider || 'Imported'}
+          </span>
+        ),
     },
     {
       header: 'Recorded At',
@@ -123,6 +137,12 @@ export function TransactionsPage() {
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <button className="btn btn-secondary btn-sm" onClick={fetchPayments}>
             <RefreshCw size={14} /> Refresh
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setIsCsvModalOpen(true)}
+          >
+            <UploadCloud size={14} /> Import CSV
           </button>
           <button className="btn btn-primary btn-sm" onClick={() => setIsModalOpen(true)}>
             <Plus size={14} /> Register Demo Payment
@@ -189,6 +209,14 @@ export function TransactionsPage() {
       <PaymentModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onSuccess={fetchPayments}
+      />
+
+      {/* CSV Import Modal */}
+      <CsvImportModal
+        isOpen={isCsvModalOpen}
+        onClose={() => setIsCsvModalOpen(false)}
+        type="payments"
         onSuccess={fetchPayments}
       />
     </div>

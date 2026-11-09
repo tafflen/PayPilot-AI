@@ -12,6 +12,10 @@ const config = {
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   nodeEnv: process.env.NODE_ENV || 'development',
   stalePendingHours: parseInt(process.env.STALE_PENDING_HOURS, 10) || 24,
+  paypalClientId: process.env.PAYPAL_CLIENT_ID || '',
+  paypalClientSecret: process.env.PAYPAL_CLIENT_SECRET || '',
+  paypalBaseUrl: process.env.PAYPAL_BASE_URL || 'https://api-m.sandbox.paypal.com',
+  paypalWebhookId: process.env.PAYPAL_WEBHOOK_ID || '',
 };
 
 module.exports = config;

@@ -10,6 +10,7 @@ import {
   ArrowRight,
   TrendingUp,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -74,6 +75,50 @@ export function DashboardPage() {
           </button>
           <button className="btn btn-primary btn-sm" onClick={() => navigate('/incidents')}>
             Open Incidents Queue ({kpis.openIncidentsCount})
+          </button>
+        </div>
+      </div>
+
+      {/* 5-Step Analyst Workflow Bar for Small Businesses */}
+      <div
+        style={{
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '0.9rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <Sparkles size={18} color="var(--accent-teal)" />
+          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Fast Analyst Workflow:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+            <span>1. Upload CSV</span>
+            <span>&rarr;</span>
+            <span>2. Reconcile</span>
+            <span>&rarr;</span>
+            <span>3. Review Incidents</span>
+            <span>&rarr;</span>
+            <span>4. AI Investigate</span>
+            <span>&rarr;</span>
+            <span>5. Resolve</span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/orders')}>
+            Import Orders
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/transactions')}>
+            Import Payments
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => navigate('/reconciliation')}>
+            Run Engine
           </button>
         </div>
       </div>

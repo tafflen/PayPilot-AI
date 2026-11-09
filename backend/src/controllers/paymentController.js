@@ -2,6 +2,7 @@ const Payment = require('../models/Payment');
 const Order = require('../models/Order');
 const Incident = require('../models/Incident');
 const { logAction } = require('../services/auditService');
+const { validateAndPreparePayments } = require('../services/csvImportService');
 
 /**
  * List payment records with search, filter, and pagination
@@ -147,8 +148,71 @@ async function createDemoPayment(req, res, next) {
   }
 }
 
+/**
+ * Bulk import payments from CSV data with preview and duplicate protection
+ */
+async function importPaymentsCsv(req, res, next) {
+  try {
+    const { csvText, rows, preview = false } = req.body;
+    const input = csvText || rows;
+
+    if (!input || (typeof input === 'string' && !input.trim()) || (Array.isArray(input) && input.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'No CSV data or rows provided for import.',
+      });
+    }
+
+    const existingPayments = await Payment.find({}, 'transactionRef').lean();
+    const existingDbRefs = new Set(existingPayments.map((p) => (p.transactionRef || '').toUpperCase()));
+
+    const result = validateAndPreparePayments(input, existingDbRefs);
+
+    if (preview) {
+      return res.json({
+        success: true,
+        message: 'CSV preview generated successfully',
+        data: result,
+      });
+    }
+
+    let insertedPayments = [];
+    if (result.validRows.length > 0) {
+      insertedPayments = await Payment.insertMany(result.validRows, { ordered: false });
+
+      await logAction({
+        actor: req.user ? req.user.email : 'system',
+        action: 'PAYMENT_CSV_IMPORT',
+        resourceType: 'Payment',
+        details: {
+          importedCount: insertedPayments.length,
+          duplicateCount: result.duplicateRows.length,
+          invalidCount: result.invalidRows.length,
+        },
+        req,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully imported ${insertedPayments.length} payment(s). ${result.duplicateRows.length} duplicates skipped.`,
+      data: {
+        importedCount: insertedPayments.length,
+        duplicateCount: result.duplicateRows.length,
+        invalidCount: result.invalidRows.length,
+        invalidRows: result.invalidRows,
+        duplicateRows: result.duplicateRows,
+        payments: insertedPayments,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listPayments,
   getPaymentById,
   createDemoPayment,
+  importPaymentsCsv,
 };

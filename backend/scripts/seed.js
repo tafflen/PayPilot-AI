@@ -148,8 +148,8 @@ async function seed() {
         createdBy: demoUser._id,
       },
     ];
-
-    await Order.insertMany(demoOrders);
+    const demoOrdersWithFlag = demoOrders.map((o) => ({ ...o, isDemo: true }));
+    await Order.insertMany(demoOrdersWithFlag);
     console.log(`[Seed] Seeded ${demoOrders.length} demo orders.`);
 
     // 38 hours ago for stale pending payment

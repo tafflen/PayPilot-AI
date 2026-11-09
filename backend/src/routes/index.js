@@ -7,6 +7,7 @@ const incidentRoutes = require('./incidentRoutes');
 const dashboardRoutes = require('./dashboardRoutes');
 const reportRoutes = require('./reportRoutes');
 const healthRoutes = require('./healthRoutes');
+const paypalRoutes = require('./paypalRoutes');
 
 const router = express.Router();
 
@@ -18,5 +19,6 @@ router.use('/reconciliation', reconciliationRoutes);
 router.use('/incidents', incidentRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/reports', reportRoutes);
+router.use('/paypal', paypalRoutes);
 
 module.exports = router;
