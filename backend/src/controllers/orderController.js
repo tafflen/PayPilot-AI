@@ -71,6 +71,12 @@ async function listOrders(req, res, next) {
     const { search, status, currency, page = 1, limit = 20 } = req.query;
     const query = {};
 
+    // Customer Isolation: Customer can ONLY see their own orders
+    if (req.user && req.user.role === 'customer') {
+      const email = req.user.email.toLowerCase();
+      query.$or = [{ customerUserId: req.user._id }, { customerEmail: email }];
+    }
+
     if (status) {
       query.status = status;
     }
@@ -81,12 +87,18 @@ async function listOrders(req, res, next) {
 
     if (search) {
       const regex = new RegExp(search.trim(), 'i');
-      query.$or = [
+      const searchConditions = [
         { orderRef: regex },
         { customerName: regex },
         { invoiceRef: regex },
         { description: regex },
       ];
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: searchConditions }];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
+      }
     }
 
     const pageNum = Math.max(1, parseInt(page, 10));
@@ -136,10 +148,26 @@ async function getOrderById(req, res, next) {
       });
     }
 
-    // Retrieve linked records
+    // Customer Access Check: Verify ownership
+    const isCustomer = req.user && req.user.role === 'customer';
+    if (isCustomer) {
+      const email = req.user.email.toLowerCase();
+      const isOwner =
+        (order.customerUserId && order.customerUserId.toString() === req.user._id.toString()) ||
+        (order.customerEmail && order.customerEmail.toLowerCase() === email);
+
+      if (!isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You cannot view orders belonging to another customer.',
+        });
+      }
+    }
+
+    // Retrieve linked records (never expose internal incidents to customers)
     const [payments, incidents] = await Promise.all([
       Payment.find({ orderRef: order.orderRef }).sort({ recordedAt: -1 }).lean(),
-      Incident.find({ orderRef: order.orderRef }).sort({ createdAt: -1 }).lean(),
+      isCustomer ? Promise.resolve([]) : Incident.find({ orderRef: order.orderRef }).sort({ createdAt: -1 }).lean(),
     ]);
 
     res.json({

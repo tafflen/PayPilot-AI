@@ -55,10 +55,20 @@ async function authenticate(req, res, next) {
  */
 function authorize(...roles) {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required.',
+      });
+    }
+
+    const userRole = req.user.role === 'admin' ? 'business_admin' : req.user.role;
+    const allowed = roles.map((r) => (r === 'admin' ? 'business_admin' : r));
+
+    if (!allowed.includes(userRole)) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to perform this action.',
+        message: 'Forbidden: You do not have permission to perform this action.',
       });
     }
     next();

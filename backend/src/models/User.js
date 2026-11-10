@@ -28,8 +28,18 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: Object.values(ROLES),
-      default: ROLES.ANALYST,
+      enum: ['business_admin', 'analyst', 'customer', 'admin', 'manager'],
+      default: ROLES.CUSTOMER,
+    },
+    customerRef: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    organization: {
+      type: String,
+      trim: true,
+      default: '',
     },
   },
   {

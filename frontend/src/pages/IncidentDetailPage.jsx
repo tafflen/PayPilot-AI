@@ -14,8 +14,10 @@ import {
   Copy,
   Check,
   Info,
+  RotateCcw,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { LoadingState } from '../components/common/LoadingState';
 import { ErrorState } from '../components/common/ErrorState';
@@ -26,6 +28,8 @@ import { formatDateTime } from '../utils/formatters';
 export function IncidentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isBusinessAdmin = user?.role === 'business_admin' || user?.role === 'admin';
 
   const [incident, setIncident] = useState(null);
   const [linkedOrder, setLinkedOrder] = useState(null);
@@ -46,6 +50,15 @@ export function IncidentDetailPage() {
 
   // Resolution modal
   const [modalTargetStatus, setModalTargetStatus] = useState(null);
+
+  // Refund modal state
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [refundTxnRef, setRefundTxnRef] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [isRefunding, setIsRefunding] = useState(false);
+  const [refundError, setRefundError] = useState(null);
+  const [refundSuccessMessage, setRefundSuccessMessage] = useState(null);
 
   const fetchIncident = async () => {
     setIsLoading(true);
@@ -125,6 +138,61 @@ export function IncidentDetailPage() {
     fetchIncident();
   };
 
+  const handleOpenRefundModal = () => {
+    const candidateTxn =
+      linkedPayment?.transactionRef ||
+      incident?.evidence?.duplicatePaymentRef ||
+      incident?.evidence?.transactionRef ||
+      incident?.evidence?.actualPayment?.transactionRef ||
+      '';
+    const candidateAmount = linkedPayment?.amount
+      ? (linkedPayment.amount / 100).toFixed(2)
+      : '';
+    setRefundTxnRef(candidateTxn);
+    setRefundAmount(candidateAmount);
+    setRefundReason(`Approved duplicate/overcharge remediation for ${incident?.incidentRef}`);
+    setRefundError(null);
+    setIsRefundModalOpen(true);
+  };
+
+  const handleProcessRefund = async (e) => {
+    e.preventDefault();
+    if (!refundTxnRef.trim()) {
+      setRefundError('Transaction reference is required for refund.');
+      return;
+    }
+    setIsRefunding(true);
+    setRefundError(null);
+    try {
+      const minorAmount = refundAmount ? Math.round(parseFloat(refundAmount) * 100) : undefined;
+      const res = await api.refunds.create({
+        transactionRef: refundTxnRef.trim(),
+        amount: minorAmount,
+        reason: refundReason.trim(),
+        incidentRef: incident?.incidentRef,
+      });
+
+      setRefundSuccessMessage(res.message || 'Refund successfully executed.');
+      setIsRefundModalOpen(false);
+
+      // Add investigation note for audit trail
+      try {
+        await api.incidents.addNote(
+          incident._id,
+          `[Human Action: Refund Processed] Initiated refund of ${minorAmount ? (minorAmount / 100).toFixed(2) : 'full amount'} for transaction ${refundTxnRef}. Reason: ${refundReason}`
+        );
+      } catch (noteErr) {
+        console.warn('Note addition after refund had non-blocking issue:', noteErr);
+      }
+
+      fetchIncident();
+    } catch (err) {
+      setRefundError(err.message || 'Refund failed to execute.');
+    } finally {
+      setIsRefunding(false);
+    }
+  };
+
   if (isLoading) return <LoadingState message="Loading incident investigation file..." />;
   if (error) return <ErrorState message={error} onRetry={fetchIncident} />;
   if (!incident) return <ErrorState message="Incident record not found." />;
@@ -137,6 +205,36 @@ export function IncidentDetailPage() {
           <ArrowLeft size={16} /> Back to Incidents Queue
         </Link>
       </div>
+
+      {/* Success banner if refund was just processed */}
+      {refundSuccessMessage && (
+        <div
+          style={{
+            marginBottom: '1.25rem',
+            padding: '0.85rem 1.25rem',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'var(--status-success-bg)',
+            border: '1px solid var(--status-success-border)',
+            color: 'var(--status-success)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.88rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <CheckCircle2 size={16} />
+            <span>{refundSuccessMessage}</span>
+          </div>
+          <button
+            className="btn-ghost"
+            onClick={() => setRefundSuccessMessage(null)}
+            style={{ border: 'none', background: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1.2rem' }}
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       {/* Main Incident Dossier Header */}
       <div
@@ -204,6 +302,21 @@ export function IncidentDetailPage() {
             )}
           </button>
 
+          {/* Refund Action for Business Admin */}
+          {isBusinessAdmin && (linkedPayment || incident.incidentType === 'DUPLICATE_TRANSACTION' || incident.evidence?.duplicatePaymentRef || incident.evidence?.transactionRef) && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleOpenRefundModal}
+              style={{
+                borderColor: 'var(--status-danger)',
+                color: 'var(--status-danger)',
+              }}
+            >
+              <RotateCcw size={14} /> Initiate Refund
+            </button>
+          )}
+
           {/* Status Transitions */}
           {incident.status === 'open' && (
             <button
@@ -248,154 +361,101 @@ export function IncidentDetailPage() {
         <div
           className="card-header"
           style={{
+            backgroundColor: 'rgba(20, 184, 166, 0.08)',
+            borderBottom: '1px solid rgba(20, 184, 166, 0.25)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            backgroundColor: 'rgba(20, 184, 166, 0.08)',
-            borderBottom: '1px solid rgba(20, 184, 166, 0.2)',
-            padding: '1rem 1.25rem',
             flexWrap: 'wrap',
             gap: '0.75rem',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <Bot size={20} color="var(--accent-teal)" />
-            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600 }}>
-              Gemini AI Incident Investigation Copilot
+            <h3 className="card-title" style={{ margin: 0 }}>
+              Gemini AI Forensic Investigation Dossier
             </h3>
-            <span
-              style={{
-                fontSize: '0.72rem',
-                backgroundColor: 'rgba(20, 184, 166, 0.2)',
-                color: 'var(--accent-teal)',
-                padding: '0.2rem 0.55rem',
-                borderRadius: 'var(--radius-sm)',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              AI Advisory
-            </span>
           </div>
-
           {aiAnalyzedAt && (
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Last analyzed: {formatDateTime(aiAnalyzedAt)}
+              Analyzed on {formatDateTime(aiAnalyzedAt)}
             </span>
           )}
         </div>
 
-        <div className="card-body" style={{ padding: '1.25rem' }}>
-          {/* Fact vs AI Suggestion Notice */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '0.65rem',
-              backgroundColor: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              padding: '0.75rem 1rem',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '0.82rem',
-              color: 'var(--text-secondary)',
-              marginBottom: '1rem',
-              lineHeight: 1.45,
-            }}
-          >
-            <Info size={16} color="#38bdf8" style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div>
-              <strong>Fact & AI Distinction:</strong> The engine below presents verified, deterministic facts from your stored ledger. Gemini suggestions are advisory insights based strictly on these facts. Human review and approval are required before initiating financial corrections.
-            </div>
-          </div>
-
-          {/* AI Loading State */}
-          {isAiLoading && (
-            <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-              <RefreshCw
-                size={26}
-                color="var(--accent-teal)"
-                style={{ animation: 'spin 1s linear infinite', margin: '0 auto 0.75rem auto' }}
-              />
-              <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.25rem' }}>
-                Analyzing Stored Incident Records with Gemini AI...
-              </div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Synthesizing order receivables, payment settlement events, and reconciliation rule logic.
-              </div>
-            </div>
-          )}
-
-          {/* AI Error State */}
-          {aiError && !isAiLoading && (
+        <div className="card-body">
+          {aiError && (
             <div
               style={{
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid var(--status-danger)',
-                color: 'var(--status-danger)',
                 padding: '1rem',
+                backgroundColor: 'var(--status-danger-bg)',
+                border: '1px solid var(--status-danger-border)',
                 borderRadius: 'var(--radius-md)',
+                color: 'var(--status-danger)',
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '0.75rem',
+                alignItems: 'flex-start',
+                gap: '0.6rem',
+                marginBottom: '1rem',
+                fontSize: '0.88rem',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
-                <AlertTriangle size={16} />
-                <span>{aiError}</span>
+              <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong>Investigation Diagnostic:</strong>
+                <p style={{ margin: '0.25rem 0 0 0' }}>{aiError}</p>
               </div>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleRunAiInvestigation}
-              >
-                <RefreshCw size={13} /> Retry AI Investigation
-              </button>
             </div>
           )}
 
-          {/* Empty state before running AI */}
-          {!aiAnalysis && !isAiLoading && !aiError && (
+          {!aiAnalysis && !isAiLoading && (
             <div
               style={{
                 textAlign: 'center',
-                padding: '2rem 1.5rem',
-                backgroundColor: 'var(--bg-surface-elevated)',
-                borderRadius: 'var(--radius-md)',
+                padding: '2rem 1rem',
+                color: 'var(--text-secondary)',
               }}
             >
-              <Sparkles
-                size={32}
-                color="var(--accent-teal)"
-                style={{ margin: '0 auto 0.75rem auto', opacity: 0.8 }}
-              />
-              <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.35rem' }}>
-                Generate Instant AI Root Cause & Next Steps
-              </div>
+              <Sparkles size={32} color="var(--accent-teal)" style={{ marginBottom: '0.75rem', opacity: 0.8 }} />
+              <p style={{ fontSize: '0.95rem', fontWeight: 500, margin: '0 0 0.5rem 0' }}>
+                AI Forensic Analysis Available
+              </p>
               <p
                 style={{
-                  fontSize: '0.85rem',
-                  color: 'var(--text-muted)',
-                  maxWidth: '560px',
+                  fontSize: '0.84rem',
+                  maxWidth: '520px',
                   margin: '0 auto 1.25rem auto',
-                  lineHeight: 1.5,
+                  color: 'var(--text-muted)',
                 }}
               >
-                Click below to request an intelligent Gemini assessment of this discrepancy, detailing practical next steps tailored to your small business ledger.
+                Click "AI Investigate" above to generate a forensic breakdown: Root Cause hypothesis,
+                Confidence score, Recommended resolution steps, and Pre-written customer explanation.
               </p>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary btn-sm"
                 onClick={handleRunAiInvestigation}
               >
-                <Sparkles size={15} /> Run Gemini AI Investigation
+                <Sparkles size={14} /> Run Gemini Investigation
               </button>
             </div>
           )}
 
-          {/* Formatted AI Output */}
+          {isAiLoading && (
+            <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
+              <RefreshCw
+                size={28}
+                color="var(--accent-teal)"
+                style={{ animation: 'spin 1.2s linear infinite', marginBottom: '0.75rem' }}
+              />
+              <p style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--accent-teal)', margin: 0 }}>
+                Synthesizing ledger evidence with Google Gemini AI...
+              </p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                Evaluating order records, timestamps, amount deltas, and payment settlement states.
+              </p>
+            </div>
+          )}
+
           {aiAnalysis && !isAiLoading && (
             <div>
               <div
@@ -531,6 +591,112 @@ export function IncidentDetailPage() {
         </div>
       </div>
 
+      {/* Refund Initiation Modal */}
+      {isRefundModalOpen && (
+        <div className="modal-backdrop" onClick={() => !isRefunding && setIsRefundModalOpen(false)}>
+          <div className="modal-card" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <RotateCcw size={18} color="var(--status-danger)" />
+                <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Initiate Customer Refund</h3>
+              </div>
+              <button
+                type="button"
+                className="btn-ghost"
+                style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
+                onClick={() => !isRefunding && setIsRefundModalOpen(false)}
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleProcessRefund}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {refundError && (
+                  <div
+                    style={{
+                      padding: '0.75rem',
+                      backgroundColor: 'var(--status-danger-bg)',
+                      color: 'var(--status-danger)',
+                      border: '1px solid var(--status-danger-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    {refundError}
+                  </div>
+                )}
+
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Authorizing this refund will call the PayPal Sandbox Refund API (if applicable) and record an irreversible settlement reversal in the ledger and customer portal.
+                </p>
+
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.82rem' }}>
+                    Target Transaction Reference *
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input font-mono"
+                    placeholder="e.g. TXN-2026-004"
+                    value={refundTxnRef}
+                    onChange={(e) => setRefundTxnRef(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.82rem' }}>
+                    Refund Amount (Decimal, e.g. 150.00 — leave blank for full captured amount)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    className="form-input font-mono"
+                    placeholder="Full Amount"
+                    value={refundAmount}
+                    onChange={(e) => setRefundAmount(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.82rem' }}>
+                    Reason for Refund *
+                  </label>
+                  <textarea
+                    className="form-textarea"
+                    rows={3}
+                    placeholder="Reason for approving refund (e.g. Duplicate PayPal capture confirmed)"
+                    value={refundReason}
+                    onChange={(e) => setRefundReason(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsRefundModalOpen(false)}
+                  disabled={isRefunding}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-danger"
+                  disabled={isRefunding || !refundTxnRef.trim() || !refundReason.trim()}
+                >
+                  {isRefunding ? 'Processing Refund...' : 'Approve & Issue Refund'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Resolution status modal */}
       {modalTargetStatus && (
         <ResolutionModal
@@ -543,3 +709,5 @@ export function IncidentDetailPage() {
     </div>
   );
 }
+
+export default IncidentDetailPage;

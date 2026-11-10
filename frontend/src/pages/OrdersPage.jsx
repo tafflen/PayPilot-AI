@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
   ShoppingCart,
   Plus,
@@ -8,12 +7,13 @@ import {
   Trash2,
   Eye,
   UploadCloud,
+  Copy,
+  Check,
+  Link2,
+  Calendar,
+  User,
+  FileText,
   CreditCard,
-  ExternalLink,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Loader2,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { DataTable } from '../components/common/DataTable';
@@ -29,7 +29,6 @@ export function OrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
-  const [searchParams, setSearchParams] = useSearchParams();
 
   // Modals state
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -42,9 +41,9 @@ export function OrdersPage() {
   const [viewingOrder, setViewingOrder] = useState(null);
   const [viewingOrderDetails, setViewingOrderDetails] = useState(null);
 
-  // PayPal interaction state
-  const [initiatingPayPalId, setInitiatingPayPalId] = useState(null);
-  const [paypalFeedback, setPaypalFeedback] = useState(null);
+  // Copy link feedback
+  const [copiedOrderRef, setCopiedOrderRef] = useState(null);
+  const [copiedModalLink, setCopiedModalLink] = useState(false);
 
   const fetchOrders = async () => {
     setIsLoading(true);
@@ -66,47 +65,6 @@ export function OrdersPage() {
     fetchOrders();
   }, [search, status]);
 
-  // Handle return redirect from PayPal Sandbox checkout
-  useEffect(() => {
-    const isSuccess = searchParams.get('paypal_success') === 'true';
-    const isCancelled = searchParams.get('paypal_cancelled') === 'true';
-    const token = searchParams.get('token'); // PayPal Order ID
-    const orderRef = searchParams.get('orderRef');
-
-    if (isSuccess && token) {
-      setPaypalFeedback({
-        type: 'processing',
-        message: `Finalizing PayPal Sandbox payment for order ${orderRef || token}... Capturing funds.`,
-      });
-
-      // Clear query params from URL so refresh does not trigger repeated captures
-      setSearchParams({}, { replace: true });
-
-      api.paypal
-        .captureOrder({ paypalOrderId: token, orderRef })
-        .then((res) => {
-          const captureRef = res.data?.payment?.transactionRef || token;
-          setPaypalFeedback({
-            type: 'success',
-            message: `PayPal Sandbox payment captured and verified! Capture ID: ${captureRef}`,
-          });
-          fetchOrders();
-        })
-        .catch((err) => {
-          setPaypalFeedback({
-            type: 'error',
-            message: `PayPal capture failed: ${err.message}`,
-          });
-        });
-    } else if (isCancelled) {
-      setPaypalFeedback({
-        type: 'warning',
-        message: `PayPal Sandbox payment checkout was cancelled by the buyer${orderRef ? ` for order ${orderRef}` : ''}.`,
-      });
-      setSearchParams({}, { replace: true });
-    }
-  }, []);
-
   const handleOpenDetail = async (order) => {
     setViewingOrder(order);
     try {
@@ -117,29 +75,19 @@ export function OrdersPage() {
     }
   };
 
-  const handlePayWithPayPal = async (order) => {
-    if (!order) return;
-    setInitiatingPayPalId(order._id);
-    setPaypalFeedback(null);
+  const handleCopyPaymentLink = (order, e) => {
+    if (e) e.stopPropagation();
+    const link = `${window.location.origin}/portal/invoices?orderRef=${order.orderRef}`;
+    navigator.clipboard.writeText(link);
+    setCopiedOrderRef(order.orderRef);
+    setTimeout(() => setCopiedOrderRef(null), 2500);
+  };
 
-    try {
-      const res = await api.paypal.createOrder({
-        orderId: order._id,
-        orderRef: order.orderRef,
-      });
-
-      if (res.data?.approvalUrl) {
-        window.location.href = res.data.approvalUrl;
-      } else {
-        throw new Error('PayPal did not return an approval URL.');
-      }
-    } catch (err) {
-      setPaypalFeedback({
-        type: 'error',
-        message: `Could not initialize PayPal checkout: ${err.message}`,
-      });
-      setInitiatingPayPalId(null);
-    }
+  const handleCopyModalPaymentLink = (orderRef) => {
+    const link = `${window.location.origin}/portal/invoices?orderRef=${orderRef}`;
+    navigator.clipboard.writeText(link);
+    setCopiedModalLink(true);
+    setTimeout(() => setCopiedModalLink(false), 2500);
   };
 
   const handleConfirmDelete = async (force = false) => {
@@ -234,27 +182,28 @@ export function OrdersPage() {
       align: 'right',
       render: (o) => (
         <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
-          {o.status !== 'paid' && (
-            <button
-              className="btn btn-secondary btn-sm"
-              title="Pay with PayPal Sandbox"
-              disabled={initiatingPayPalId === o._id}
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePayWithPayPal(o);
-              }}
-              style={{
-                borderColor: 'var(--accent-teal)',
-                color: 'var(--accent-teal)',
-              }}
-            >
-              {initiatingPayPalId === o._id ? (
-                <Loader2 size={13} className="spin" />
-              ) : (
-                <CreditCard size={13} />
-              )}
-            </button>
-          )}
+          {/* Copy Customer Payment Link */}
+          <button
+            className="btn btn-secondary btn-sm"
+            title="Copy Customer Payment Link"
+            onClick={(e) => handleCopyPaymentLink(o, e)}
+            style={{
+              borderColor: copiedOrderRef === o.orderRef ? 'var(--status-success)' : undefined,
+              color: copiedOrderRef === o.orderRef ? 'var(--status-success)' : undefined,
+            }}
+          >
+            {copiedOrderRef === o.orderRef ? (
+              <>
+                <Check size={13} />
+                <span style={{ fontSize: '0.72rem', marginLeft: '0.2rem' }}>Copied!</span>
+              </>
+            ) : (
+              <>
+                <Link2 size={13} />
+                <span style={{ fontSize: '0.72rem', marginLeft: '0.2rem' }}>Payment Link</span>
+              </>
+            )}
+          </button>
           <button
             className="btn btn-secondary btn-sm"
             title="View Details & Ledger Matches"
@@ -324,61 +273,6 @@ export function OrdersPage() {
         </div>
       </div>
 
-      {/* PayPal Feedback Banner */}
-      {paypalFeedback && (
-        <div
-          style={{
-            marginBottom: '1.25rem',
-            padding: '0.85rem 1.25rem',
-            borderRadius: 'var(--radius-md)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: '0.88rem',
-            backgroundColor:
-              paypalFeedback.type === 'success'
-                ? 'var(--status-success-bg)'
-                : paypalFeedback.type === 'warning'
-                ? 'var(--status-warning-bg)'
-                : paypalFeedback.type === 'error'
-                ? 'var(--status-danger-bg)'
-                : 'rgba(6, 182, 212, 0.15)',
-            border: `1px solid ${
-              paypalFeedback.type === 'success'
-                ? 'var(--status-success-border)'
-                : paypalFeedback.type === 'warning'
-                ? 'var(--status-warning-border)'
-                : paypalFeedback.type === 'error'
-                ? 'var(--status-danger-border)'
-                : 'var(--border-focus)'
-            }`,
-            color:
-              paypalFeedback.type === 'success'
-                ? 'var(--status-success)'
-                : paypalFeedback.type === 'warning'
-                ? 'var(--status-warning)'
-                : paypalFeedback.type === 'error'
-                ? 'var(--status-danger)'
-                : 'var(--accent-teal)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            {paypalFeedback.type === 'processing' && <Loader2 size={18} className="spin" />}
-            {paypalFeedback.type === 'success' && <CheckCircle2 size={18} />}
-            {paypalFeedback.type === 'warning' && <AlertTriangle size={18} />}
-            {paypalFeedback.type === 'error' && <XCircle size={18} />}
-            <span>{paypalFeedback.message}</span>
-          </div>
-          <button
-            className="btn-ghost"
-            style={{ border: 'none', color: 'inherit', padding: '0.2rem', cursor: 'pointer', fontSize: '1.2rem', background: 'none' }}
-            onClick={() => setPaypalFeedback(null)}
-          >
-            &times;
-          </button>
-        </div>
-      )}
-
       <SearchAndFilters
         searchValue={search}
         onSearchChange={setSearch}
@@ -435,10 +329,10 @@ export function OrdersPage() {
         }}
       />
 
-      {/* Order Detail Modal with linked payments and incidents */}
+      {/* Order Detail Modal with Customer Billing Details and Shareable Link */}
       {viewingOrder && viewingOrderDetails && (
         <div className="modal-backdrop" onClick={() => setViewingOrder(null)}>
-          <div className="modal-card" style={{ maxWidth: '650px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-card" style={{ maxWidth: '680px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <h3 className="font-mono text-teal">Order Details: {viewingOrderDetails.order.orderRef}</h3>
@@ -452,6 +346,7 @@ export function OrdersPage() {
             </div>
 
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Summary KPIs */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', backgroundColor: 'var(--bg-input)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
                 <div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>EXPECTED AMOUNT</div>
@@ -469,72 +364,143 @@ export function OrdersPage() {
                 </div>
               </div>
 
-              {/* PayPal Sandbox Checkout Card */}
+              {/* Customer Billing & Invoice Information Card */}
               <div
                 style={{
                   backgroundColor: 'var(--bg-surface-elevated)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-md)',
-                  padding: '1rem',
+                  padding: '1.1rem',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.75rem',
                 }}
               >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.5rem' }}>
+                  <User size={16} color="var(--accent-teal)" />
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Customer Billing Information</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.85rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Customer Name: </span>
+                    <strong>{viewingOrderDetails.order.customerName}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Billing Email: </span>
+                    <span>{viewingOrderDetails.order.customerEmail || '—'}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Invoice Reference: </span>
+                    <strong className="font-mono">{viewingOrderDetails.order.invoiceRef || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Due Date: </span>
+                    <span>{viewingOrderDetails.order.dueDate ? formatDateTime(viewingOrderDetails.order.dueDate) : 'On Receipt'}</span>
+                  </div>
+                </div>
+                {viewingOrderDetails.order.description && (
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.5rem' }}>
+                    <strong style={{ color: 'var(--text-muted)' }}>Description: </strong>
+                    {viewingOrderDetails.order.description}
+                  </div>
+                )}
+              </div>
+
+              {/* Line Items if available */}
+              {viewingOrderDetails.order.items && viewingOrderDetails.order.items.length > 0 && (
+                <div>
+                  <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <FileText size={15} color="var(--accent-teal)" /> Itemized Line Items ({viewingOrderDetails.order.items.length})
+                  </h4>
+                  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: 'var(--bg-input)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
+                          <th style={{ padding: '0.5rem 0.75rem' }}>Item</th>
+                          <th style={{ padding: '0.5rem 0.75rem', textAlign: 'center' }}>Qty</th>
+                          <th style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>Unit Price</th>
+                          <th style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {viewingOrderDetails.order.items.map((item, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <td style={{ padding: '0.5rem 0.75rem' }}>{item.name}</td>
+                            <td style={{ padding: '0.5rem 0.75rem', textAlign: 'center' }}>{item.quantity || 1}</td>
+                            <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }} className="font-mono">
+                              {formatCurrency(item.unitPrice || 0, viewingOrderDetails.order.currency)}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', fontWeight: 600 }} className="font-mono">
+                              {formatCurrency(item.total || (item.unitPrice * (item.quantity || 1)), viewingOrderDetails.order.currency)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Customer Payment Portal Share Link */}
+              <div
+                style={{
+                  backgroundColor: 'rgba(20, 184, 166, 0.08)',
+                  border: '1px solid rgba(20, 184, 166, 0.3)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.65rem',
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <CreditCard size={18} color="var(--accent-teal)" />
-                    <span style={{ fontWeight: 600, fontSize: '0.92rem' }}>
-                      PayPal Sandbox Checkout
+                    <Link2 size={16} color="var(--accent-teal)" />
+                    <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--accent-teal)' }}>
+                      Customer Payment Portal Link
                     </span>
                   </div>
                   <span
                     className="badge"
                     style={{
                       fontSize: '0.72rem',
-                      backgroundColor: 'rgba(6, 182, 212, 0.12)',
+                      backgroundColor: 'rgba(20, 184, 166, 0.2)',
                       color: 'var(--accent-teal)',
-                      border: '1px solid rgba(6, 182, 212, 0.3)',
                     }}
                   >
-                    Sandbox Environment
+                    Customer Self-Service
                   </span>
                 </div>
 
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
-                  Process customer payment via PayPal Sandbox. Amount is dynamically retrieved from MongoDB and verified upon capture.
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Share this secure payment link with your customer so they can view the invoice and complete settlement via PayPal Sandbox in their dedicated Customer Portal.
                 </p>
 
-                {viewingOrderDetails.order.status === 'paid' ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--status-success)', fontSize: '0.85rem' }}>
-                    <CheckCircle2 size={16} />
-                    <span>Order is already fully paid. No further payment required.</span>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.25rem' }}>
-                    <div style={{ fontSize: '0.85rem' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Charge Amount: </span>
-                      <strong className="font-mono text-teal">
-                        {formatCurrency(viewingOrderDetails.order.expectedAmount, viewingOrderDetails.order.currency)}
-                      </strong>
-                    </div>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      disabled={initiatingPayPalId === viewingOrderDetails.order._id}
-                      onClick={() => handlePayWithPayPal(viewingOrderDetails.order)}
-                    >
-                      {initiatingPayPalId === viewingOrderDetails.order._id ? (
-                        <>
-                          <Loader2 size={14} className="spin" /> Opening PayPal...
-                        </>
-                      ) : (
-                        <>
-                          <ExternalLink size={14} /> Pay with PayPal Sandbox
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    readOnly
+                    className="form-input font-mono"
+                    style={{ fontSize: '0.8rem', padding: '0.45rem 0.65rem', backgroundColor: 'var(--bg-input)' }}
+                    value={`${window.location.origin}/portal/invoices?orderRef=${viewingOrderDetails.order.orderRef}`}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    style={{ whiteSpace: 'nowrap' }}
+                    onClick={() => handleCopyModalPaymentLink(viewingOrderDetails.order.orderRef)}
+                  >
+                    {copiedModalLink ? (
+                      <>
+                        <Check size={14} /> Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} /> Copy Link
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Linked Payments */}
@@ -623,3 +589,5 @@ export function OrdersPage() {
     </div>
   );
 }
+
+export default OrdersPage;

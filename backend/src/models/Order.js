@@ -77,6 +77,27 @@ const orderSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    customerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
+    dueDate: {
+      type: Date,
+      default: null,
+    },
+    items: {
+      type: [
+        {
+          description: { type: String, trim: true },
+          quantity: { type: Number, default: 1 },
+          unitPrice: { type: Number },
+          amount: { type: Number },
+        },
+      ],
+      default: [],
+    },
     isDemo: {
       type: Boolean,
       default: false,

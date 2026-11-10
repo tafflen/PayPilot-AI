@@ -1,418 +1,537 @@
-# PayPilot AI: Payment Incident Investigation & Reconciliation Platform
+# PayPilot AI
+### Payment Incident Investigation & Reconciliation Platform
 
-> **Local Development Prototype**  
-> PayPilot AI is a fintech operations platform designed for small businesses and freelancers to detect, investigate, audit, and resolve discrepancies between expected customer orders and ingested payment records.
+> A modern payment reconciliation platform for small businesses, analysts, and customers.
 
-## The Problem
+PayPilot AI helps businesses track incoming payments, compare them with customer orders, identify payment discrepancies, and investigate them using AI assistance.
 
-Small businesses often struggle to reconcile orders, payment records, and invoices efficiently. Missing payments, duplicate transactions, failed payments, and currency or amount mismatches require manual investigation, increasing the time and effort needed to resolve discrepancies.
-
-Statistics show that:
-\- 61% — Time-consuming manual reconciliation
-- Indian businesses spend 1–3 hours daily reconciling payments.
-- Source: Zoho Payments, Indian Merchant Payments Survey 2026 (700+ businesses surveyed).
-
-\- 46% — Reconciliation challenges
-- Indian businesses identify reconciliation as a challenge in their payment operations.
-- Source: Zoho Payments, Indian Merchant Payments Survey 2026.
-
-\- \~80% — Widespread payment difficulties
-- US small businesses face payment-related challenges, including fees, late-paying customers, time-consuming payments, and delayed access to funds.
-- Source: Federal Reserve Banks, 2024 Report on Payments, based on the 2023 Small Business Credit Survey.
-
-Existing financial reconciliation platforms, including BlackLine and HighRadius, provide powerful automation capabilities. However, some user reviews report challenges such as complex interfaces, steep learning curves, implementation difficulties, and limitations in reporting or customisation.
-
-These challenges highlight an opportunity for a simpler, more accessible reconciliation solution tailored to small businesses.
-
-## Our Solution: PayPilot AI
-
-PayPilot AI aims to simplify payment reconciliation through an accessible interface, automated discrepancy detection, and AI-assisted investigation.
-
-- **Simplified workflow:** Make reconciliation easier to understand and use without unnecessary complexity.
-- **Automated detection:** Identify missing, duplicate, failed, and mismatched payment records using deterministic reconciliation rules.
-- **Explainable AI investigation:** Use Gemini to explain detected incidents using available transaction evidence.
-- **Actionable recommendations:** Suggest appropriate next steps so analysts can investigate and resolve issues faster.
-- **Accessible data handling:** Aim to support straightforward imports of payment and order records, reducing dependence on complex integrations.
-
-## Our Goal
-
-To help small businesses spend less time manually investigating payment discrepancies by combining reliable reconciliation rules, explainable AI, and a simple user experience—while keeping financial corrections under human approval.
-
-
-
-## 1. The Product
-
-PayPilot AI provides an evidence-based incident investigation workflow that answers 6 fundamental questions for every transaction anomaly:
-
-1. **What was expected for this order?**  
-   Target customer, description, contract currency, and expected amount (stored in integer minor currency units).
-2. **What does the stored payment record say?**  
-   Gateway transaction reference, captured amount, settlement currency, provider status, and ingestion timestamp.
-3. **What discrepancy was detected?**  
-   The exact deterministic rule triggered (e.g. Underpayment, Currency mismatch, Unpaid order, Duplicate transaction, Stale pending payment, Failed payment, Unlinked payment).
-4. **What evidence is available?**  
-   Structured diagnostic payload showing exact difference calculations and gateway metadata.
-5. **What should the user investigate next?**  
-   Actionable investigation recommendation guiding the analyst's next operational step.
-6. **Has the incident been resolved, and what action resolved it?**  
-   Formal resolution lifecycle requiring root-cause documentation and preserving full audit history.
+**Project status:** Working application with PayPal Sandbox checkout and refund integration.
 
 ---
 
-## 2. Core Architecture & Tech Stack
+## 1. How It Started
 
-### Full-Stack Overview
-```
-┌────────────────────────────────────────────────────────┐
-│               PayPilot AI Frontend                      │
-│   React 18 + Vite + React Router 6 + Plain CSS + Lucide │
-│          (Port 5173 - Dark Navy Fintech Theme)          │
-└──────────────────────────┬─────────────────────────────┘
-                           │ Centralized API Client (Fetch)
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│               PayPilot AI Backend                      │
-│   Node.js 24 + Express 4 + REST + JWT Auth + Morgan    │
-│                     (Port 5000)                        │
-└──────────────┬───────────────────────────┬─────────────┘
-               │                           │
-               ▼                           ▼
-┌─────────────────────────────┐ ┌────────────────────────┐
-│    Reconciliation Engine    │ │      MongoDB 8         │
-│  Pure Deterministic Rules   │ │  Orders, Payments,     │
-│  (Testable without DB)      │ │  Incidents, AuditLogs  │
-└─────────────────────────────┘ └────────────────────────┘
-```
+PayPilot AI began as an academic project: a freelancing platform designed to help students find opportunities.
 
-### Key Technical Principles
-- **No Floating-Point Arithmetic for Money:** All currencies are converted to and stored as integer minor units (e.g. cents, 1050 cents = $10.50 USD) to prevent IEEE 754 precision errors.
-- **Pure Functional Reconciliation Engine:** The rule engine (`reconciliationService.js`) accepts plain arrays of orders and payments and returns deterministic results with 0 database side-effects. This enables high-speed offline testing.
-- **Idempotency by Design:** Repeated reconciliation runs update existing open incidents rather than creating duplicate tickets.
-- **Strict Currency Segregation:** Currency totals are never blended or converted using fabricated FX rates in financial summaries.
-- **Tamper-Evident Audit Logging:** Sensitive administrative actions, status transitions, and reconciliation runs are persisted to the `AuditLog` collection.
+After completing it, we explored real-world business problems through industry reports, statistics, and user reviews of existing financial platforms.
 
----
+One problem stood out: businesses spend considerable time tracking payments and matching them with orders.
 
-## 3. Completed Project Folder Structure
+Our initial research highlighted these statistics:
 
-```
-paypilot-ai/
-├── package.json                   # Root orchestrator scripts
-├── .gitignore                     # Git ignore rules (node_modules, .env)
-├── README.md                      # Comprehensive system guide
-├── backend/
-│   ├── .env                       # Local environment file
-│   ├── .env.example               # Environment variables template
-│   ├── package.json               # Backend dependencies & scripts
-│   ├── scripts/
-│   │   └── seed.js                # Database seeder (reproducible demo data)
-│   ├── tests/
-│   │   ├── currency.test.js       # Minor-unit math & precision tests
-│   │   ├── reconciliation.test.js # Deterministic 9-rule test suite
-│   │   ├── incidentLifecycle.test.js # Valid/invalid state transition tests
-│   │   └── apiValidation.test.js  # Request payload validator tests
-│   └── src/
-│       ├── app.js                 # Express application configuration
-│       ├── server.js              # Server bootstrapper & graceful shutdown
-│       ├── config/
-│       │   ├── db.js              # Mongoose connection manager
-│       │   └── env.js             # Environment variable loader
-│       ├── controllers/
-│       │   ├── authController.js
-│       │   ├── orderController.js
-│       │   ├── paymentController.js
-│       │   ├── reconciliationController.js
-│       │   ├── incidentController.js
-│       │   ├── dashboardController.js
-│       │   ├── reportController.js
-│       │   └── healthController.js
-│       ├── middleware/
-│       │   ├── auth.js            # JWT verification & role authorization
-│       │   ├── errorHandler.js    # Centralized error formatter
-│       │   └── rateLimiter.js     # Rate limiting for auth routes
-│       ├── models/
-│       │   ├── User.js            # User accounts & bcrypt hashing
-│       │   ├── Order.js           # Receivable orders with minor units
-│       │   ├── Payment.js         # Ingested payment records (DEMO provider)
-│       │   ├── Incident.js        # Discrepancy tickets with evidence
-│       │   └── AuditLog.js        # Tamper-evident activity logs
-│       ├── routes/
-│       │   ├── authRoutes.js
-│       │   ├── orderRoutes.js
-│       │   ├── paymentRoutes.js
-│       │   ├── reconciliationRoutes.js
-│       │   ├── incidentRoutes.js
-│       │   ├── dashboardRoutes.js
-│       │   ├── reportRoutes.js
-│       │   ├── healthRoutes.js
-│       │   └── index.js           # Unified /api route aggregator
-│       ├── services/
-│       │   ├── reconciliationService.js # Deterministic matching engine
-│       │   └── auditService.js    # Sanitized audit logger
-│       ├── utils/
-│       │   ├── constants.js       # Enums & lifecycle transitions
-│       │   └── currency.js        # Integer minor unit conversion helpers
-│       └── validators/
-│           ├── authValidator.js
-│           ├── orderValidator.js
-│           ├── paymentValidator.js
-│           └── incidentValidator.js
-└── frontend/
-    ├── index.html                 # HTML shell with fintech fonts
-    ├── vite.config.js             # Vite config with API proxy
-    ├── package.json               # Frontend dependencies & scripts
-    ├── .env.example
-    └── src/
-        ├── main.jsx               # React DOM root
-        ├── App.jsx                # Router & protected route guards
-        ├── context/
-        │   └── AuthContext.jsx    # Session state & localStorage persistence
-        ├── services/
-        │   └── api.js             # Centralized API client with JWT bearer
-        ├── utils/
-        │   └── formatters.js      # Currency, dates, and badge variant helpers
-        ├── styles/
-        │   ├── variables.css      # Dark Navy + Teal design tokens
-        │   ├── global.css         # Reset & typography styles
-        │   └── components.css     # Buttons, badges, tables, modals
-        ├── components/
-        │   ├── common/
-        │   │   ├── AppLayout.jsx  # Main layout shell
-        │   │   ├── Sidebar.jsx    # Collapsible desktop & mobile sidebar
-        │   │   ├── Header.jsx     # Top status bar & Quick Reconcile button
-        │   │   ├── StatCard.jsx   # KPI metric card
-        │   │   ├── StatusBadge.jsx# Status & severity badges
-        │   │   ├── DataTable.jsx  # Data table with loading/empty states
-        │   │   ├── SearchAndFilters.jsx # Search & dropdown toolbar
-        │   │   ├── FormField.jsx  # Form inputs wrapper
-        │   │   ├── LoadingState.jsx
-        │   │   ├── EmptyState.jsx
-        │   │   ├── ErrorState.jsx
-        │   │   └── ConfirmationDialog.jsx # Safeguard modal
-        │   ├── incidents/
-        │   │   ├── IncidentCard.jsx
-        │   │   ├── EvidenceViewer.jsx # Answers the 6 product questions
-        │   │   └── ResolutionModal.jsx # Lifecycle transition with note
-        │   ├── orders/
-        │   │   └── OrderModal.jsx # Order creation & editing
-        │   └── payments/
-        │       └── PaymentModal.jsx # Demo payment sandbox studio
-        └── pages/
-            ├── LoginPage.jsx      # Login with demo auto-filler
-            ├── RegisterPage.jsx   # Registration form
-            ├── DashboardPage.jsx  # KPI metrics & distribution charts
-            ├── TransactionsPage.jsx # Payments ledger & raw inspector
-            ├── OrdersPage.jsx     # Orders ledger & deletion safeguards
-            ├── ReconciliationPage.jsx # Engine studio & run audit trail
-            ├── IncidentsPage.jsx  # Investigation queue with multi-filters
-            ├── IncidentDetailPage.jsx # Full 6-question investigation dossier
-            ├── ReportsPage.jsx    # Currency-segregated volume & audit logs
-            └── NotFoundPage.jsx   # 404 page
+- **61%** – Time-consuming manual reconciliation.
+- **46%** – Indian businesses identify reconciliation as a challenge.
+- **1–3 hours daily** – Time Indian businesses spend reconciling payments.
+- **~80%** – US small businesses face payment-related challenges.
+
+**Sources:** Zoho Payments, *Indian Merchant Payments Survey 2026* (700+ businesses surveyed); Federal Reserve Banks, *2024 Report on Payments* (based on the 2023 Small Business Credit Survey).
+
+This led us to an idea: What if businesses could automatically identify payment discrepancies and use AI to understand them?
+
+That idea became PayPilot AI.
+
+## 2. The Problem and Our Solution
+
+Imagine a business receives an order for $100, but its payment records show:
+
+- No payment received.
+- Two payments received for the same order.
+- Only $80 received.
+- A failed or pending payment.
+- A payment in the wrong currency.
+
+Finding these differences manually takes time.
+
+PayPilot AI compares customer orders with payment records, detects discrepancies, and helps users investigate them.
+
+## 3. How Does PayPilot AI Work?
+
+The basic workflow:
+
+1. **Create an order:** The business creates an invoice for a customer.
+2. **Make a payment:** The customer pays through PayPal Sandbox.
+3. **Record the payment:** PayPilot stores the payment information.
+4. **Reconcile:** The system compares the order with its linked payment records.
+5. **Detect an incident:** If something does not match, an incident is created.
+6. **Investigate:** Gemini explains the detected issue and suggests what to check.
+7. **Resolve:** An authorised business user investigates and records the resolution.
+
+### System Architecture
+
+```text
+          BUSINESS / CUSTOMER
+                   |
+                   v
+             REACT FRONTEND
+              (User Interface)
+                   |
+                   v
+           NODE.JS + EXPRESS
+             (Backend API)
+             /     |      \
+            v      v       v
+         MONGODB  PAYPAL  GEMINI
+          (Data)  (Payment) (AI)
+            |
+            v
+    RECONCILIATION ENGINE
+     (Checks payment records)
+            |
+            v
+         INCIDENTS
+            |
+            v
+       INVESTIGATION
 ```
 
----
+### Understanding the Main Components
 
-## 4. Reconciliation Rules Reference
+| Component | Simple explanation |
+|---|---|
+| Frontend | The screens and buttons users interact with. |
+| Backend | Processes requests and applies application logic. |
+| Database | Stores users, orders, payments, and incidents. |
+| API | Allows different software systems to communicate. |
+| Reconciliation engine | Compares expected orders with actual payment records. |
+| Incident | A record of a detected payment discrepancy. |
+| Gemini AI | Helps explain detected issues and suggest investigation steps. |
 
-The engine applies 9 deterministic rules against orders and payments:
+## 4. User Roles and Features
 
-| Rule ID | Rule Name | Severity | Condition Evaluated |
+PayPilot AI provides separate experiences based on user roles.
+
+**Business Admin**
+- View business dashboard and analytics.
+- Manage customers, orders, and invoices.
+- View incoming payments and transactions.
+- Run reconciliation and investigate incidents.
+- Initiate and monitor refunds.
+- Manage users and access audit logs.
+
+**Reconciliation Analyst**
+- Access permitted operational information.
+- Import orders and payment records.
+- Run reconciliation.
+- Investigate incidents using Gemini AI.
+- Update incident status and view relevant information.
+
+**Customer**
+- Access a separate customer portal.
+- View personal invoices and outstanding payments.
+- Pay invoices through PayPal Sandbox.
+- View transactions and printable receipts.
+- Check refund status.
+- Submit support tickets.
+
+Customers cannot access internal business analytics, investigation records, or other customers' information.
+
+## 5. Payment Integration: PayPal Sandbox
+
+PayPal Sandbox is a testing environment that allows developers to test payments without using real money.
+
+### How the payment process works
+
+1. The customer opens an outstanding invoice and selects Pay Now.
+2. PayPilot's backend creates a PayPal order using the business's Sandbox credentials.
+3. The customer approves the payment through PayPal.
+4. PayPilot's backend captures the payment.
+5. The backend verifies the payment status, amount, and currency.
+6. The payment information is recorded in PayPilot.
+
+### What Are Webhooks?
+
+A **webhook** is an automatic notification sent by one application to another when an event occurs.
+
+For example, when a PayPal payment is completed, PayPal sends a notification to PayPilot's backend.
+
+PayPilot verifies the webhook signature with PayPal before processing the event and updating its records.
+
+We implemented webhook handling for payment events such as:
+
+- `PAYMENT.CAPTURE.COMPLETED`
+- `PAYMENT.CAPTURE.DENIED`
+- `PAYMENT.CAPTURE.PENDING`
+- `PAYMENT.CAPTURE.REFUNDED`
+- `CHECKOUT.ORDER.APPROVED`
+
+**Why use webhooks?**
+
+They allow PayPilot to receive payment updates automatically instead of repeatedly asking PayPal whether a transaction has changed.
+
+### Why Did We Use ngrok?
+
+During development, PayPilot was running on our local computer. PayPal could not directly access our local backend through `localhost`.
+
+We used **ngrok** to create a temporary public URL that forwards incoming requests to our local backend.
+
+```text
+        PAYPAL
+           |
+           v
+     NGROK PUBLIC URL
+           |
+           v
+     LOCAL BACKEND
+     (localhost:5000)
+           |
+           v
+     WEBHOOK HANDLER
+```
+
+This allowed PayPal to send webhook notifications to our locally running application.
+
+**In simple terms:** ngrok acts as a bridge between PayPal and our local development server.
+
+It was used for testing. A deployed application needs its own publicly accessible HTTPS endpoint.
+
+### Refund Management
+
+Businesses can initiate refunds through PayPilot.
+
+For example, if a customer is charged twice for the same invoice, an authorised Business Admin can investigate and initiate a refund for the duplicate payment.
+
+The refund is processed through PayPal, and its status is recorded in PayPilot.
+
+Refunds require human authorisation. Gemini does not independently issue refunds.
+
+## 6. AI and Reconciliation
+
+PayPilot AI combines two approaches:
+
+**Rule-based reconciliation**
+
+The backend uses predefined conditions to compare orders and payments. This ensures payment matching and discrepancy detection follow consistent rules.
+
+**Gemini AI investigation**
+
+After the system detects an issue, Gemini helps explain what happened, identify possible causes, and suggest what the user should investigate.
+
+AI does not independently verify payments, approve financial actions, or decide whether a transaction is successful. Those responsibilities remain with the backend and authorised users.
+
+## 7. Reconciliation Rules Reference
+
+Reconciliation means comparing what a business expected to receive with the payment records it actually received.
+
+Our engine uses the following rules:
+
+| Rule ID | Rule | Severity | What it detects |
 |---|---|---|---|
-| `RULE_01_AMOUNT_MISMATCH` | Amount Mismatch | HIGH | Payment captured amount differs from expected order amount (underpayment or overpayment). |
-| `RULE_02_CURRENCY_MISMATCH` | Currency Mismatch | HIGH | Payment currency code does not match order contract currency (e.g. USD vs EUR). |
-| `RULE_03_UNPAID_ORDER` | Unpaid Order | MEDIUM | Order registered in ledger with zero linked payments. |
-| `RULE_04_DUPLICATE_TRANSACTION` | Duplicate Reference | CRITICAL | Same transaction reference ingested multiple times or multiple captured payments for single order. |
-| `RULE_05_STALE_PENDING` | Stale Pending Payment | MEDIUM | Payment status is `pending` older than configurable threshold (default: 24h). |
-| `RULE_06_FAILED_PAYMENT` | Failed Payment Record | HIGH | Payment recorded with `failed` status (card decline, insufficient funds). |
-| `RULE_07_UNLINKED_PAYMENT` | Unlinked Payment | HIGH | Payment has no order reference or references a non-existent order. |
-| `RULE_08_MISSING_REFERENCES` | Missing References | CRITICAL | Order missing `orderRef` or payment missing `transactionRef`. |
-| `MATCHED_RECORD` | Exact Match | — | Status is `captured`, amounts match exactly in integer cents, currencies match, and references link. Auto-resolves pending order status. |
+| `RULE_01_AMOUNT_MISMATCH` | Amount Mismatch | HIGH | Payment amount differs from the order amount. |
+| `RULE_02_CURRENCY_MISMATCH` | Currency Mismatch | HIGH | Payment currency differs from the order currency. |
+| `RULE_03_UNPAID_ORDER` | Unpaid Order | MEDIUM | An order has no linked payment. |
+| `RULE_04_DUPLICATE_TRANSACTION` | Duplicate Transaction | CRITICAL | A transaction reference is duplicated or an order has multiple captured payments. |
+| `RULE_05_STALE_PENDING` | Stale Pending Payment | MEDIUM | A payment remains pending beyond the configured time limit (default: 24 hours). |
+| `RULE_06_FAILED_PAYMENT` | Failed Payment | HIGH | A payment has failed. |
+| `RULE_07_UNLINKED_PAYMENT` | Unlinked Payment | HIGH | A payment has no valid linked order. |
+| `RULE_08_MISSING_REFERENCES` | Missing References | CRITICAL | An order or payment is missing a required reference. |
+| `MATCHED_RECORD` | Exact Match | — | Payment status, amount, currency, and order reference match correctly. |
 
----
+When a discrepancy is detected, the system creates or updates an incident for investigation.
 
-## 5. Prerequisites
+Repeated reconciliation runs are designed to update existing open incidents instead of creating duplicate tickets.
 
-- **Node.js**: `v20+` or `v24+` (verified on v24.21.0)
-- **npm**: `v10+` or `v11+` (verified on v11.19.0)
-- **MongoDB**: Local MongoDB instance running on default port `27017` (e.g. `mongodb://127.0.0.1:27017`)
+## 8. Technology Stack
 
----
+| Technology | Purpose |
+|---|---|
+| React 18 | Builds the frontend interface. |
+| Vite | Runs and builds the frontend. |
+| React Router | Handles navigation between pages. |
+| CSS | Styles the application and theme modes. |
+| Node.js | Runs the backend using JavaScript. |
+| Express.js | Handles backend routes and APIs. |
+| MongoDB | Stores application data. |
+| Mongoose | Connects the backend to MongoDB. |
+| JWT | Handles user authentication. |
+| RBAC | Controls what each user role can access. |
+| PayPal Developer Platform | Provides payment APIs and Sandbox testing. |
+| Google Gemini API | Provides AI-assisted investigation. |
+| Git & GitHub | Version control and project hosting. |
+| Postman | Tests backend APIs. |
 
-## 6. Environment Setup
+## 9. Architecture and Technical Concepts
 
-### Backend Environment Configuration
-The backend uses a local `.env` file (a `.env.example` template is provided):
+A few important concepts used in PayPilot AI:
+
+**REST API:** A way for the frontend and backend to exchange information using HTTP requests.
+
+**JWT (JSON Web Token):** A token used to identify an authenticated user when accessing protected backend routes.
+
+**RBAC (Role-Based Access Control):** Controls access based on user roles, such as Business Admin, Analyst, and Customer.
+
+**OAuth 2.0:** An authorisation framework used by PayPilot's backend to obtain access tokens from PayPal.
+
+**Webhook:** An automatic message sent when an event occurs, such as a completed payment.
+
+**Idempotency:** Ensures that processing the same event or repeating an operation does not unnecessarily create duplicate records.
+
+**Integer Minor Units:** Money is stored as whole numbers in the smallest currency unit. For example, 15000 cents represents $150.00. This avoids floating-point calculation errors.
+
+**Audit Log:** A record of important activities, such as reconciliation runs and refund actions.
+
+### Important Technical Principles
+
+- **Deterministic reconciliation:** The same input records produce the same reconciliation results.
+- **Idempotency:** Repeated reconciliation runs update existing open incidents instead of creating duplicates.
+- **Currency segregation:** Financial totals in different currencies are kept separate instead of being combined using invented exchange rates.
+- **Customer data isolation:** Backend queries restrict customers to their own records.
+- **Human approval:** Financial actions such as refunds require authorised user action.
+
+## 10. Demo Login Credentials
+
+Use these accounts to explore the three user experiences:
+
+| Role | Email | Password |
+|---|---|---|
+| Business Admin | `admin@paypilot.test` | `AdminPass123!` |
+| Reconciliation Analyst | `analyst@paypilot.test` | `AnalystPass123!` |
+| Customer | `customer@paypilot.test` | `CustomerPass123!` |
+
+The login page provides quick-fill buttons for all three accounts.
+
+These are demonstration credentials for the seeded local application, not production accounts.
+
+## 11. Getting Started
+
+### Prerequisites
+
+- Node.js (v18 or higher; v20+ recommended).
+- MongoDB (local service or connection string).
+- npm or pnpm.
+
+### 1. Clone the Repository
 
 ```bash
+git clone YOUR_REPOSITORY_URL
+cd paypilot-ai
+```
+
+### 2. Install Dependencies
+
+Backend:
+
+```bash
+cd backend
+npm install
+```
+
+Frontend:
+
+```bash
+cd ../frontend
+npm install
+```
+
+### 3. Environment Setup
+
+Create `backend/.env` using the provided `.env.example`.
+
+```env
 PORT=5000
 MONGODB_URI=mongodb://127.0.0.1:27017/paypilot_ai
-JWT_SECRET=super_secret_paypilot_jwt_signing_key_for_local_dev
+JWT_SECRET=your_secure_jwt_secret
 CLIENT_URL=http://localhost:5173
-NODE_ENV=development
-STALE_PENDING_HOURS=24
+
+# Google Gemini API
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=your_configured_gemini_model
+
+# PayPal Sandbox
+PAYPAL_CLIENT_ID=your_sandbox_client_id
+PAYPAL_CLIENT_SECRET=your_sandbox_client_secret
+PAYPAL_BASE_URL=https://api-m.sandbox.paypal.com
 ```
 
-### Frontend Environment Configuration
-The frontend connects via Vite proxy or `VITE_API_URL`:
-```bash
+Create `frontend/.env`:
+
+```env
 VITE_API_URL=http://localhost:5000/api
 ```
 
----
+Use the exact variable names and model configured in your project's environment template.
 
-## 7. Installation & Seeding Commands
+Never upload actual `.env` files, passwords, or API credentials to GitHub.
 
-From the root `paypilot-ai` folder:
+### 4. Seed the Database
+
+From the backend folder:
 
 ```bash
-# 1. Install backend dependencies
-cd backend
-npm install
-cd ..
-
-# 2. Install frontend dependencies
-cd frontend
-npm install
-cd ..
-
-# 3. Seed the local MongoDB database with reproducible demo scenarios
 npm run seed
 ```
 
-### Preloaded Demo User Credentials:
-- **Email:** `demo@paypilot.local`
-- **Password:** `Password123!`
-*(The login page includes a convenient "Auto-fill Demo Credentials" button).*
+This creates the demonstration data:
 
----
+- Three user accounts.
+- Sample customer invoices and orders.
+- Payment records with different reconciliation scenarios.
+- Sample incidents and support tickets.
 
-## 8. Commands to Run Frontend & Backend
+### 5. Run Automated Tests
 
-In separate terminals:
+Backend tests:
 
-### Terminal 1: Backend API Server
 ```bash
 cd backend
-npm start
-# Server listens on http://localhost:5000
-# Health check available at http://localhost:5000/api/health
+npm test
 ```
 
-*(For development with auto-reloading: `npm run dev`)*
+The project includes **54 backend unit, integration, role, and refund tests**.
 
-### Terminal 2: Frontend Client
+Frontend production build:
+
+```bash
+cd ../frontend
+npm run build
+```
+
+### 6. Start the Application
+
+Open two separate terminals.
+
+**Terminal 1: Backend**
+
+```bash
+cd backend
+npm run dev
+```
+
+**Terminal 2: Frontend**
+
 ```bash
 cd frontend
 npm run dev
-# Vite dev server running on http://localhost:5173
 ```
 
-Open your browser to **`http://localhost:5173`** and log in!
+Open:
+
+`http://localhost:5173`
+
+Log in using one of the demonstration accounts.
+
+## 12. REST API Documentation
+
+### What Is a REST API?
+
+A REST API allows the frontend and backend to exchange information using HTTP requests.
+
+| Method | Meaning |
+|---|---|
+| `GET` | Retrieve information. |
+| `POST` | Create or submit information. |
+| `PATCH` | Update existing information. |
+| `DELETE` | Remove information. |
+
+**Base URL:** `http://localhost:5000/api`
+
+Protected endpoints require authentication and the appropriate user role.
+
+### A. Authentication and Users
+
+| Method | Endpoint | Purpose | Access |
+|---|---|---|---|
+| POST | `/auth/register` | Register a customer account. | Public |
+| POST | `/auth/login` | Log in and receive a JWT. | Public |
+| GET | `/auth/me` | Retrieve the current user profile. | Authenticated |
+| GET | `/auth/users` | List business users and customers. | Business Admin |
+| POST | `/auth/users` | Create an Analyst or Customer account. | Business Admin |
+
+### B. Orders and Invoices
+
+| Method | Endpoint | Purpose | Access |
+|---|---|---|---|
+| GET | `/orders` | List orders. | Any authenticated user; customer data isolated |
+| GET | `/orders/:id` | View order details and line items. | Ownership verified |
+| POST | `/orders` | Create a customer order. | Business Admin, Analyst |
+| PATCH | `/orders/:id` | Update order details. | Business Admin, Analyst |
+| DELETE | `/orders/:id` | Delete an order with safeguards. | Business Admin, Analyst |
+| POST | `/orders/import` | Import orders from a CSV file. | Business Admin, Analyst |
+
+### C. Payments and Transactions
+
+| Method | Endpoint | Purpose | Access |
+|---|---|---|---|
+| GET | `/payments` | List payment records. | Authenticated; customer data isolated |
+| GET | `/payments/:id` | View payment details and receipts. | Ownership verified |
+| POST | `/payments/demo` | Create a test payment record. | Business Admin, Analyst |
+| POST | `/payments/import` | Import payments from a CSV file. | Business Admin, Analyst |
+
+### D. Reconciliation and Incidents
+
+| Method | Endpoint | Purpose | Access |
+|---|---|---|---|
+| POST | `/reconciliation/run` | Execute reconciliation rules. | Business Admin, Analyst |
+| GET | `/reconciliation/history` | View previous reconciliation runs. | Business Admin, Analyst |
+| GET | `/incidents` | View the investigation queue. | Business Admin, Analyst |
+| GET | `/incidents/:id` | View incident evidence. | Business Admin, Analyst |
+| PATCH | `/incidents/:id/status` | Update incident status. | Business Admin, Analyst |
+| POST | `/incidents/:id/notes` | Add an investigation note. | Business Admin, Analyst |
+| POST | `/incidents/:id/ai-investigation` | Run Gemini AI investigation. | Business Admin, Analyst |
+
+### E. Refunds and Customer Support
+
+| Method | Endpoint | Purpose | Access |
+|---|---|---|---|
+| POST | `/refunds` | Initiate a human-approved PayPal refund. | Business Admin |
+| GET | `/refunds` | List refunds. | Authenticated; customer data isolated |
+| GET | `/refunds/:id` | View refund details. | Ownership verified |
+| POST | `/support/tickets` | Submit a support ticket. | Authenticated |
+| GET | `/support/tickets` | List support tickets. | Authenticated; customer data isolated |
+| PATCH | `/support/tickets/:id` | Update ticket status or response. | Business Admin, Analyst |
+
+### F. PayPal Sandbox
+
+| Method | Endpoint | Purpose | Access |
+|---|---|---|---|
+| GET | `/paypal/config` | Retrieve public Sandbox configuration. | Public |
+| POST | `/paypal/create-order` | Create a PayPal order using the verified database order. | Authenticated |
+| POST | `/paypal/capture-order` | Capture payment and link it to the internal order. | Authenticated |
+| POST | `/paypal/webhook` | Receive PayPal events and verify their signatures. | PayPal webhook verification |
+
+The webhook endpoint does not use normal user login. It verifies requests using PayPal's webhook signature verification process.
+
+## 13. Security and Data Isolation
+
+PayPilot AI uses several measures to protect business and customer information.
+
+1. **Role protection:** Public registration only creates Customer accounts. Privileged accounts must be created by an existing Business Admin or through database seeding.
+
+2. **Customer data isolation:** Backend queries restrict customers to their own orders, payments, refunds, and support tickets.
+
+3. **Internal data protection:** Customers cannot access internal incident investigations, Gemini investigation outputs, or business audit logs.
+
+4. **Credential security:** PayPal client secrets and access tokens remain on the backend. The frontend only receives public configuration and payment approval information.
+
+5. **Webhook verification:** PayPal notifications are verified before the backend processes them.
+
+6. **Human-authorised refunds:** Refunds are initiated by an authorised Business Admin rather than automatically by AI.
+
+### Current Limitations
+
+- PayPal is integrated in Sandbox mode, not for real-money transactions.
+- ngrok was used for local webhook testing, not production hosting.
+- Additional deployment, security, scalability, and real-world testing are required before production use.
+
+## 14. What I Learned
+
+Building PayPilot AI helped me understand:
+
+- How frontend and backend systems communicate.
+- How databases store and retrieve application data.
+- How REST APIs connect different systems.
+- How OAuth 2.0 is used for API authentication.
+- How payment processing and webhooks work.
+- How ngrok helps test webhooks locally.
+- How deterministic rules identify payment discrepancies.
+- How AI can assist with technical investigation.
+
+## 15. What's Next?
+
+- Support additional payment gateways.
+- Improve investigation and reporting capabilities.
+- Strengthen security and production deployment.
+- Explore real-world testing with small businesses.
 
 ---
 
-## 9. Running Automated Tests
-
-Run all unit and business-logic tests using Node's built-in test runner:
-
-```bash
-# From root directory:
-npm test
-
-# Or directly in backend:
-cd backend
-npm test
-```
-
-### Test Coverage Summary:
-- **`currency.test.js`**: Minor-unit conversions, decimal formatting, float precision cancellation, zero-decimal currencies (JPY).
-- **`reconciliation.test.js`**: Exact match, amount mismatch, currency mismatch, unpaid order, duplicate transaction, stale pending payments, failed payments, unlinked payments, missing references, idempotency on repeated runs, and empty dataset handling.
-- **`incidentLifecycle.test.js`**: Allowed transitions (`open` -> `investigating` -> `resolved`), rejection of direct closure, enforcement of mandatory resolution note, reopening resolved incidents.
-- **`apiValidation.test.js`**: Input validators for authentication and orders.
-
-All **26 tests run and pass in under 1 second** without requiring a database connection!
-
----
-
-## 10. Frontend Production Build
-
-To verify that the frontend compiles cleanly:
-
-```bash
-cd frontend
-npm run build
-```
-*(Produces optimized assets in `frontend/dist/`).*
-
----
-
-## 11. REST API Documentation
-
-Base URL: `http://localhost:5000/api`
-
-### A. Authentication
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/auth/register` | Register new analyst | No (Rate-limited) |
-| `POST` | `/auth/login` | Authenticate and obtain JWT | No (Rate-limited) |
-| `GET` | `/auth/me` | Fetch active user profile | Bearer Token |
-
-### B. Orders
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `GET` | `/orders` | List orders (search, status filter, pagination) | Bearer Token |
-| `POST` | `/orders` | Create receivable order | Bearer Token |
-| `GET` | `/orders/:id` | Get order details + linked payments + incidents | Bearer Token |
-| `PATCH` | `/orders/:id` | Update customer or billing metadata | Bearer Token |
-| `DELETE` | `/orders/:id` | Safeguarded deletion (checks active payments) | Bearer Token |
-
-### C. Payments
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `GET` | `/payments` | List payments (search, status filter, pagination) | Bearer Token |
-| `GET` | `/payments/:id` | Get payment details + linked order | Bearer Token |
-| `POST` | `/payments/demo` | Create demo payment record for rule testing | Bearer Token |
-
-### D. Reconciliation
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/reconciliation/run` | Execute on-demand deterministic reconciliation | Bearer Token |
-| `GET` | `/reconciliation/history` | View previous reconciliation run audit history | Bearer Token |
-
-### E. Incidents
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `GET` | `/incidents` | List investigation queue (severity, status, type) | Bearer Token |
-| `GET` | `/incidents/:id` | Get full incident evidence dossier | Bearer Token |
-| `PATCH` | `/incidents/:id/status` | Update lifecycle status (requires note if resolving) | Bearer Token |
-| `POST` | `/incidents/:id/notes` | Append analyst investigation note | Bearer Token |
-
-### F. Dashboard & Analytics
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `GET` | `/dashboard/stats` | Aggregated ledger KPIs & status distributions | Bearer Token |
-| `GET` | `/reports` | Segregated currency totals & audit trail | Bearer Token |
-| `GET` | `/health` | Server uptime and MongoDB connection state | No |
-
----
-
-## 12. Security Considerations & Production Readiness
-
-This project is built as a clean local prototype. Before deploying to public production:
-1. **Rotate Secrets:** Replace `JWT_SECRET` with a cryptographically secure 256-bit random key stored in an enterprise secret manager (AWS Secrets Manager, GCP Secret Manager, Vault).
-2. **HTTPS & Cookies:** For production browsers, store JWTs in `httpOnly`, `Secure`, `SameSite=Strict` cookies rather than `localStorage`.
-3. **Database Security:** Enable MongoDB TLS/SSL connections, role-based access control (RBAC), and authentication.
-4. **CORS Hardening:** Restrict `CLIENT_URL` strictly to trusted production frontend domains.
-5. **Rate Limiting:** Implement Redis-backed distributed rate limiting for multi-instance deployments.
-
----
-
-## 13. Planned Future Integrations (Explicitly Excluded in this Phase)
-
-The codebase has been designed with modular services so future integrations can plug in cleanly without refactoring core business logic:
-
-### PayPal Developer Sandbox
-- Sandbox account credential vault
-- Server-side Order Create & Capture API handlers
-- Secure PayPal webhook signature verification (`PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`)
-- Idempotent webhook event ledger
+**PayPilot AI — Making payment reconciliation easier to understand, investigate, and manage.**

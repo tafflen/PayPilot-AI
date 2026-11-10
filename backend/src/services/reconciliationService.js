@@ -438,9 +438,13 @@ async function runDatabaseReconciliation({ actor = 'system', stalePendingHours =
     });
 
     if (!existing) {
-      // Create new open incident with human-readable reference
-      const count = await Incident.countDocuments();
-      const incidentRef = `INC-${String(count + 1).padStart(4, '0')}`;
+      // Create new open incident with human-readable, guaranteed-unique reference
+      let nextNum = (await Incident.countDocuments()) + 1;
+      let incidentRef = `INC-${String(nextNum).padStart(4, '0')}`;
+      while (await Incident.findOne({ incidentRef })) {
+        nextNum++;
+        incidentRef = `INC-${String(nextNum).padStart(4, '0')}`;
+      }
 
       await Incident.create({
         incidentRef,

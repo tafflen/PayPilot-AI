@@ -6,7 +6,8 @@ const {
   addInvestigationNote,
   investigateIncidentWithAI,
 } = require('../controllers/incidentController');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
+const { ROLES } = require('../utils/constants');
 const {
   validateIncidentStatusUpdate,
   validateAddNote,
@@ -14,7 +15,7 @@ const {
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, authorize(ROLES.BUSINESS_ADMIN, ROLES.ADMIN, ROLES.ANALYST));
 
 router.get('/', listIncidents);
 router.post('/:id/ai-investigation', investigateIncidentWithAI);

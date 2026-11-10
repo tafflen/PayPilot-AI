@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { Menu, Play, RefreshCw, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Menu, Play, RefreshCw, CheckCircle2, Sun, Moon } from 'lucide-react';
 import { api } from '../../services/api';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 
 export function Header({ onMenuClick, onReconciled }) {
   const [isReconciling, setIsReconciling] = useState(false);
   const [successToast, setSuccessToast] = useState(null);
+  const { theme, toggleTheme } = useTheme();
+  const { user } = useAuth();
 
   const handleRunReconciliation = async () => {
     setIsReconciling(true);
@@ -20,15 +24,22 @@ export function Header({ onMenuClick, onReconciled }) {
     }
   };
 
+  const isStaff = user?.role === 'business_admin' || user?.role === 'admin' || user?.role === 'analyst';
+
   return (
     <header className="app-header">
       <div className="header-left">
-        <button className="menu-btn" onClick={onMenuClick}>
+        <button className="menu-btn" onClick={onMenuClick} aria-label="Toggle menu">
           <Menu size={20} />
         </button>
-        <div className="env-pill">
-          <span className="env-dot" />
-          <span>Local Investigation Sandbox &bull; Demo Engine</span>
+        <div className="platform-tagline">
+          <span className="business-name">Acme Cloud Services Ltd</span>
+          <span className="platform-divider">/</span>
+          <span className="workspace-label">
+            {user?.role === 'business_admin' || user?.role === 'admin'
+              ? 'Business Management'
+              : 'Analyst Workspace'}
+          </span>
         </div>
       </div>
 
@@ -40,20 +51,36 @@ export function Header({ onMenuClick, onReconciled }) {
           </div>
         )}
 
+        {isStaff && (
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleRunReconciliation}
+            disabled={isReconciling}
+          >
+            {isReconciling ? (
+              <>
+                <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                Reconciling...
+              </>
+            ) : (
+              <>
+                <Play size={14} /> Run Reconciliation
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Light / Dark Mode Toggle Button */}
         <button
-          className="btn btn-primary btn-sm"
-          onClick={handleRunReconciliation}
-          disabled={isReconciling}
+          className="theme-toggle-btn"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
-          {isReconciling ? (
-            <>
-              <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
-              Reconciling...
-            </>
+          {theme === 'dark' ? (
+            <Sun size={18} color="#f59e0b" />
           ) : (
-            <>
-              <Play size={14} /> Run Reconciliation
-            </>
+            <Moon size={18} color="#6366f1" />
           )}
         </button>
       </div>
@@ -78,6 +105,27 @@ export function Header({ onMenuClick, onReconciled }) {
           gap: 1rem;
         }
 
+        .platform-tagline {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.85rem;
+        }
+
+        .business-name {
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .platform-divider {
+          color: var(--text-muted);
+        }
+
+        .workspace-label {
+          color: var(--accent-teal);
+          font-weight: 500;
+        }
+
         .menu-btn {
           display: none;
           background: none;
@@ -87,31 +135,30 @@ export function Header({ onMenuClick, onReconciled }) {
           padding: 0.4rem;
         }
 
-        .env-pill {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          background-color: var(--bg-surface-elevated);
-          border: 1px solid var(--border-strong);
-          padding: 0.3rem 0.75rem;
-          border-radius: var(--radius-full);
-          font-size: 0.78rem;
-          font-weight: 600;
-          color: var(--text-secondary);
-        }
-
-        .env-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background-color: var(--accent-teal);
-          box-shadow: 0 0 6px var(--accent-teal);
-        }
-
         .header-right {
           display: flex;
           align-items: center;
-          gap: 1rem;
+          gap: 0.85rem;
+        }
+
+        .theme-toggle-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border-radius: var(--radius-md);
+          background-color: var(--bg-surface-elevated);
+          border: 1px solid var(--border-strong);
+          color: var(--text-primary);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .theme-toggle-btn:hover {
+          background-color: var(--bg-surface-hover);
+          border-color: var(--border-focus);
+          transform: translateY(-1px);
         }
 
         .recon-toast {
@@ -134,7 +181,10 @@ export function Header({ onMenuClick, onReconciled }) {
           .menu-btn {
             display: block;
           }
-          .env-pill {
+          .business-name {
+            display: none;
+          }
+          .platform-divider {
             display: none;
           }
         }

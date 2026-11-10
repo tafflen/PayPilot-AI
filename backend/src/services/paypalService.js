@@ -320,6 +320,60 @@ async function verifyWebhookSignature({ headers = {}, body = {}, webhookId = nul
   };
 }
 
+/**
+ * Initiate a refund for a PayPal captured payment
+ * @param {Object} params - { captureId, amountMajor, currency, note }
+ * @returns {Promise<Object>} Refund response
+ */
+async function refundPayPalPayment({ captureId, amountMajor, currency, note = 'Customer refund' }) {
+  if (!captureId) {
+    throw new Error('Capture ID is required for refund');
+  }
+
+  if (mockHandler) {
+    const mockResult = await mockHandler('refund-payment', { captureId, amountMajor, currency, note });
+    if (mockResult) return mockResult;
+  }
+
+  const accessToken = await getAccessToken();
+  const baseUrl = getBaseUrl();
+
+  const payload = {};
+  if (amountMajor && currency) {
+    payload.amount = {
+      value: amountMajor.toString(),
+      currency_code: currency.toUpperCase(),
+    };
+  }
+  if (note) {
+    payload.note_to_payer = note.slice(0, 255);
+  }
+
+  const response = await fetch(`${baseUrl}/v2/payments/captures/${captureId}/refund`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'PayPal-Request-Id': `refund_${captureId}_${Date.now()}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const details = data.details ? data.details.map((d) => `${d.issue}: ${d.description}`).join('; ') : '';
+    const errorMsg = data.message || details || `PayPal refund failed (HTTP ${response.status})`;
+    const err = new Error(errorMsg);
+    err.details = data;
+    err.statusCode = response.status;
+    throw err;
+  }
+
+  return data;
+}
+
 module.exports = {
   getBaseUrl,
   getAccessToken,
@@ -327,6 +381,7 @@ module.exports = {
   capturePayPalOrder,
   getPayPalOrder,
   verifyWebhookSignature,
+  refundPayPalPayment,
   _setMockHandler,
   _clearMockHandler,
 };

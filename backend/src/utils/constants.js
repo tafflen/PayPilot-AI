@@ -4,9 +4,10 @@
  */
 
 const ROLES = {
+  BUSINESS_ADMIN: 'business_admin',
+  ADMIN: 'business_admin', // backwards-compatible alias
   ANALYST: 'analyst',
-  MANAGER: 'manager',
-  ADMIN: 'admin',
+  CUSTOMER: 'customer',
 };
 
 const ORDER_STATUS = {
@@ -58,6 +59,18 @@ const RECONCILIATION_RULES = {
   RULE_MISSING_REFERENCES: 'RULE_08_MISSING_REFERENCES',
 };
 
+const REFUND_STATUS = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+};
+
+const SUPPORT_STATUS = {
+  OPEN: 'open',
+  IN_REVIEW: 'in_review',
+  RESOLVED: 'resolved',
+};
+
 // Allowed incident status transitions
 const ALLOWED_STATUS_TRANSITIONS = {
   [INCIDENT_STATUS.OPEN]: [INCIDENT_STATUS.INVESTIGATING],
@@ -69,6 +82,8 @@ module.exports = {
   ROLES,
   ORDER_STATUS,
   PAYMENT_STATUS,
+  REFUND_STATUS,
+  SUPPORT_STATUS,
   INCIDENT_STATUS,
   INCIDENT_SEVERITY,
   INCIDENT_TYPE,

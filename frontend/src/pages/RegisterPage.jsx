@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, ArrowRight } from 'lucide-react';
+import { ShieldCheck, ArrowRight, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { FormField } from '../components/common/FormField';
 
@@ -9,7 +9,6 @@ export function RegisterPage() {
     name: '',
     email: '',
     password: '',
-    role: 'analyst',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
@@ -39,7 +38,7 @@ export function RegisterPage() {
 
     try {
       await register(formData);
-      navigate('/dashboard');
+      navigate('/portal');
     } catch (err) {
       setFormError(err.message || 'Registration failed.');
     } finally {
@@ -54,42 +53,58 @@ export function RegisterPage() {
           <div className="auth-logo">
             <ShieldCheck size={28} color="var(--accent-teal)" />
           </div>
-          <h1>Create Account</h1>
-          <p className="auth-sub">Register as an investigator on PayPilot AI</p>
+          <h1>Customer Registration</h1>
+          <p className="auth-sub">Create your client portal account to review invoices and submit payments</p>
         </div>
 
-        {formError && (
-          <div className="auth-error-alert">
-            {formError}
-          </div>
-        )}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            backgroundColor: 'var(--bg-surface-elevated)',
+            borderLeft: '3px solid var(--accent-teal)',
+            padding: '0.65rem 0.85rem',
+            borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+            fontSize: '0.8rem',
+            color: 'var(--text-secondary)',
+            marginBottom: '1.25rem',
+          }}
+        >
+          <User size={16} color="var(--accent-teal)" />
+          <span>
+            Staff and Analyst accounts are managed and provisioned directly by the Business Administrator.
+          </span>
+        </div>
+
+        {formError && <div className="auth-error-alert">{formError}</div>}
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <FormField label="Full Name" required={true}>
+          <FormField label="Full Name or Business Contact" required={true}>
             <input
               type="text"
               name="name"
               className="form-input"
-              placeholder="e.g. Jane Doe"
+              placeholder="Jane Cooper"
               value={formData.name}
               onChange={handleChange}
               required
             />
           </FormField>
 
-          <FormField label="Work Email" required={true}>
+          <FormField label="Email Address" required={true}>
             <input
               type="email"
               name="email"
               className="form-input"
-              placeholder="jane@organization.com"
+              placeholder="customer@acme.com"
               value={formData.email}
               onChange={handleChange}
               required
             />
           </FormField>
 
-          <FormField label="Password" required={true} helpText="Minimum 6 characters">
+          <FormField label="Password (minimum 6 characters)" required={true}>
             <input
               type="password"
               name="password"
@@ -98,39 +113,24 @@ export function RegisterPage() {
               value={formData.password}
               onChange={handleChange}
               required
+              minLength={6}
             />
           </FormField>
 
-          <FormField label="Role / Permissions">
-            <select
-              name="role"
-              className="form-select"
-              value={formData.role}
-              onChange={handleChange}
-            >
-              <option value="analyst">Analyst (Investigate & resolve incidents)</option>
-              <option value="manager">Manager (Approve & review audit trails)</option>
-              <option value="admin">Administrator (Full ledger control)</option>
-            </select>
-          </FormField>
-
-          <button
-            type="submit"
-            className="btn btn-primary btn-block"
-            disabled={isSubmitting}
-            style={{ marginTop: '1rem' }}
-          >
-            {isSubmitting ? 'Creating account...' : (
+          <button type="submit" className="btn btn-primary btn-block" disabled={isSubmitting}>
+            {isSubmitting ? (
+              'Creating Account...'
+            ) : (
               <>
-                Register Account <ArrowRight size={16} />
+                Create Customer Account <ArrowRight size={16} />
               </>
             )}
           </button>
         </form>
 
         <div className="auth-footer">
-          <span>Already registered? </span>
-          <Link to="/login">Sign in here</Link>
+          <span>Already have an account? </span>
+          <Link to="/login?role=customer">Sign in to Customer Portal</Link>
         </div>
       </div>
 
@@ -156,7 +156,7 @@ export function RegisterPage() {
 
         .auth-header {
           text-align: center;
-          margin-bottom: 2rem;
+          margin-bottom: 1.25rem;
         }
 
         .auth-logo {
@@ -168,7 +168,7 @@ export function RegisterPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          margin: 0 auto 1rem;
+          margin: 0 auto 0.75rem;
         }
 
         .auth-header h1 {

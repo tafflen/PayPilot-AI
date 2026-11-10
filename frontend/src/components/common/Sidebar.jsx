@@ -16,8 +16,10 @@ import { useAuth } from '../../context/AuthContext';
 export function Sidebar({ isOpen, onClose, openIncidentsCount = 0 }) {
   const { user, logout } = useAuth();
 
+  const isAnalyst = user?.role === 'analyst';
+
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    ...(!isAnalyst ? [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }] : []),
     { name: 'Reconciliation', path: '/reconciliation', icon: RefreshCw },
     {
       name: 'Incidents',
@@ -89,8 +91,14 @@ export function Sidebar({ isOpen, onClose, openIncidentsCount = 0 }) {
               {(user?.name || 'U').charAt(0).toUpperCase()}
             </div>
             <div className="user-info">
-              <div className="user-name">{user?.name || 'Analyst'}</div>
-              <div className="user-role">{user?.role || 'analyst'}</div>
+              <div className="user-name">{user?.name || 'Staff User'}</div>
+              <div className="user-role">
+                {user?.role === 'business_admin' || user?.role === 'admin'
+                  ? 'Business Admin'
+                  : user?.role === 'analyst'
+                  ? 'Reconciliation Analyst'
+                  : 'Customer'}
+              </div>
             </div>
             <button
               className="btn-logout"

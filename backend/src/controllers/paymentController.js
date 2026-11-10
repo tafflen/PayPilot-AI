@@ -20,9 +20,25 @@ async function listPayments(req, res, next) {
       query.currency = currency.toUpperCase();
     }
 
+    // Customer Isolation: Customer can only view payments linked to their orders
+    if (req.user && req.user.role === 'customer') {
+      const email = req.user.email.toLowerCase();
+      const customerOrders = await Order.find({
+        $or: [{ customerUserId: req.user._id }, { customerEmail: email }],
+      }).select('orderRef');
+      const customerOrderRefs = customerOrders.map((o) => o.orderRef);
+      query.orderRef = { $in: customerOrderRefs };
+    }
+
     if (search) {
       const regex = new RegExp(search.trim(), 'i');
-      query.$or = [{ transactionRef: regex }, { orderRef: regex }];
+      const searchConditions = [{ transactionRef: regex }, { orderRef: regex }];
+      if (query.orderRef) {
+        query.$and = [{ orderRef: query.orderRef }, { $or: searchConditions }];
+        delete query.orderRef;
+      } else {
+        query.$or = searchConditions;
+      }
     }
 
     const pageNum = Math.max(1, parseInt(page, 10));
@@ -77,12 +93,30 @@ async function getPaymentById(req, res, next) {
       linkedOrder = await Order.findOne({ orderRef: payment.orderRef }).lean();
     }
 
-    const linkedIncidents = await Incident.find({
-      $or: [
-        { transactionRef: payment.transactionRef },
-        ...(payment.orderRef ? [{ orderRef: payment.orderRef }] : []),
-      ],
-    }).sort({ createdAt: -1 }).lean();
+    const isCustomer = req.user && req.user.role === 'customer';
+    if (isCustomer) {
+      const email = req.user.email.toLowerCase();
+      const isOwner =
+        linkedOrder &&
+        ((linkedOrder.customerUserId && linkedOrder.customerUserId.toString() === req.user._id.toString()) ||
+          (linkedOrder.customerEmail && linkedOrder.customerEmail.toLowerCase() === email));
+
+      if (!isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You cannot view payment records belonging to another customer.',
+        });
+      }
+    }
+
+    const linkedIncidents = isCustomer
+      ? []
+      : await Incident.find({
+          $or: [
+            { transactionRef: payment.transactionRef },
+            ...(payment.orderRef ? [{ orderRef: payment.orderRef }] : []),
+          ],
+        }).sort({ createdAt: -1 }).lean();
 
     res.json({
       success: true,

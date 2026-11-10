@@ -55,6 +55,11 @@ export const api = {
     login: (credentials) => request('/auth/login', { method: 'POST', body: credentials }),
     register: (userData) => request('/auth/register', { method: 'POST', body: userData }),
     getMe: () => request('/auth/me'),
+    getUsers: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/auth/users${qs ? `?${qs}` : ''}`);
+    },
+    createUser: (userData) => request('/auth/users', { method: 'POST', body: userData }),
   },
 
   // Dashboard
@@ -118,6 +123,26 @@ export const api = {
   // Reports
   reports: {
     getReports: () => request('/reports'),
+  },
+
+  // Refunds
+  refunds: {
+    list: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/refunds${qs ? `?${qs}` : ''}`);
+    },
+    getById: (id) => request(`/refunds/${id}`),
+    create: (data) => request('/refunds', { method: 'POST', body: data }),
+  },
+
+  // Customer Support & Issue Reports
+  support: {
+    createTicket: (data) => request('/support/tickets', { method: 'POST', body: data }),
+    listTickets: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/support/tickets${qs ? `?${qs}` : ''}`);
+    },
+    updateTicket: (id, data) => request(`/support/tickets/${id}`, { method: 'PATCH', body: data }),
   },
 
   // PayPal Sandbox

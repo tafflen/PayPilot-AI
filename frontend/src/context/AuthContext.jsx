@@ -41,10 +41,12 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, [token]);
 
-  const login = async (email, password) => {
+  const login = async (email, password, expectedRole = null) => {
     setError(null);
     try {
-      const res = await api.auth.login({ email, password });
+      const payload = { email, password };
+      if (expectedRole) payload.expectedRole = expectedRole;
+      const res = await api.auth.login(payload);
       const { user: loggedInUser, token: authToken } = res.data;
       setUser(loggedInUser);
       setToken(authToken);

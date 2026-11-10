@@ -73,6 +73,21 @@ async function createOrder(req, res, next) {
       });
     }
 
+    // Customer authorization check: customers can only initiate payment on their own orders
+    if (req.user && req.user.role === 'customer') {
+      const email = req.user.email.toLowerCase();
+      const isOwner =
+        (order.customerUserId && order.customerUserId.toString() === req.user._id.toString()) ||
+        (order.customerEmail && order.customerEmail.toLowerCase() === email);
+
+      if (!isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You cannot pay an invoice belonging to another customer.',
+        });
+      }
+    }
+
     // Verify order is not already paid
     if (order.status === ORDER_STATUS.PAID) {
       return res.status(400).json({
@@ -83,8 +98,10 @@ async function createOrder(req, res, next) {
 
     // Default URLs if not explicitly provided
     const clientOrigin = req.headers.origin || 'http://localhost:5173';
-    const finalReturnUrl = returnUrl || `${clientOrigin}/orders?paypal_success=true&orderRef=${order.orderRef}`;
-    const finalCancelUrl = cancelUrl || `${clientOrigin}/orders?paypal_cancelled=true&orderRef=${order.orderRef}`;
+    const isCustomer = req.user && req.user.role === 'customer';
+    const returnPath = isCustomer ? '/portal/invoices' : '/orders';
+    const finalReturnUrl = returnUrl || `${clientOrigin}${returnPath}?paypal_success=true&orderRef=${order.orderRef}`;
+    const finalCancelUrl = cancelUrl || `${clientOrigin}${returnPath}?paypal_cancelled=true&orderRef=${order.orderRef}`;
 
     // Create Sandbox order through PayPal API (amounts retrieved purely from MongoDB record)
     const paypalOrder = await paypalService.createPayPalOrder({
